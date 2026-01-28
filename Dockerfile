@@ -18,6 +18,8 @@ RUN pip install uv
 COPY pyproject.toml README.md ./
 COPY src ./src
 COPY app.py ./
+COPY static ./static
+COPY templates ./templates
 
 # Create virtual environment and install dependencies
 # We install the project in editable mode or just dependencies
@@ -28,11 +30,11 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Install dependencies from pyproject.toml
 RUN uv pip install .
 
-# Expose Streamlit port
-EXPOSE 8501
+# Expose Flask port
+EXPOSE 5000
 
 # Healthcheck
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
+HEALTHCHECK CMD curl --fail http://localhost:5000/ || exit 1
 
 # Run the application
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["python", "app.py"]

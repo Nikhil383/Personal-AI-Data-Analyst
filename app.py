@@ -1,122 +1,128 @@
-import streamlit as st
-import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
-from data_analysis.analyst import load_data, suggest_prompts, prompt_to_code, run_code, ask_llm, get_df_context
+import sys
+import shutil
+from pathlib import Path
+from flask import Flask, render_template, request, jsonify, session, send_file
+from dotenv import load_dotenv
 import pandas as pd
 
-st.set_page_config(page_title="Personal AI Data Analyst", layout="wide")
-st.title("Personal AI Data Analyst — Interactive Dashboard")
+# Load environment variables
+load_dotenv()
 
-st.sidebar.header("Settings")
-use_llm = st.sidebar.checkbox("Use LLM for custom prompts", value=False)
-provider = "ollama"
-api_key = None
+# Add src to path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+from data_analysis.analyst import load_data, suggest_prompts, prompt_to_code, run_code, ask_llm, get_df_context
 
-if use_llm:
-    provider_options = ["Local (Ollama)", "Google Gemini"]
-    selected_provider = st.sidebar.radio("Model Provider", provider_options)
+app = Flask(__name__)
+app.secret_key = os.urandom(24)
+UPLOAD_FOLDER = 'uploads'
+STATIC_PLOTS_FOLDER = os.path.join('static', 'plots')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(STATIC_PLOTS_FOLDER, exist_ok=True)
 
-    if "Gemini" in selected_provider:
-        provider = "gemini"
-        llm_model = st.sidebar.text_input("Gemini Model", value="gemini-pro")
-        api_key = st.sidebar.text_input("Google API Key", type="password")
-        if not api_key:
-            st.sidebar.warning("Enter API Key to use Gemini.")
-    else:
-        provider = "ollama"
-        llm_model = st.sidebar.text_input("Ollama Model", value="llama3.1")
-        st.sidebar.markdown("Ensure Ollama is installed and running.")
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-uploaded = st.file_uploader("Upload CSV, Excel, or JSON", type=["csv","xls","xlsx","json"])
-if uploaded is None:
-    st.info("Upload a CSV / XLSX / JSON to get started. Suggestions will appear automatically.")
-    st.stop()
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'})
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'})
+    
+    filename = file.filename
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
+    
+    # Store filename in session
+    session['filename'] = filename
+    session['filepath'] = filepath
+    
+    try:
+        # Load just to get suggestions
+        df = load_data(filepath)
+        suggestions = suggest_prompts(df)
+        # Convert df info to JSON compatible format if needed, mostly we just need suggestions now
+        return jsonify({'message': 'File uploaded', 'suggestions': suggestions})
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
-# Load data
-try:
-    df = load_data(uploaded)
-except Exception as e:
-    st.error(f"Failed to load file: {e}")
-    st.stop()
+@app.route('/analyze', methods=['POST'])
+def analyze():
+    filepath = session.get('filepath')
+    if not filepath or not os.path.exists(filepath):
+        return jsonify({'error': 'No file uploaded or file lost provided'})
+    
+    data = request.json
+    prompt = data.get('prompt')
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'})
 
-st.success("File loaded.")
-with st.expander("Preview data (first 100 rows)"):
-    st.dataframe(df.head(100))
-
-# Generate suggestions
-suggestions = suggest_prompts(df)
-st.markdown("## Suggested analyses (pick one or write your own)")
-col1, col2 = st.columns([3,1])
-with col1:
-    selected = st.selectbox("Choose a suggested prompt", options=suggestions)
-    custom = st.text_area("Or write a custom prompt (leave blank to use the selected suggestion)", height=80)
-with col2:
-    st.markdown("**Quick actions**")
-    if st.button("Show suggestions again"):
-        st.write(suggestions)
-
-# Determine final prompt
-final_prompt = custom.strip() if custom and custom.strip() else selected
-
-st.markdown("### Final prompt")
-st.write(final_prompt)
-
-# Run button
-if st.button("Run analysis"):
-    with st.spinner("Running..."):
-        # First try deterministic conversion
-        code = prompt_to_code(final_prompt, df)
-        if code:
-            res = run_code(df, code)
-        else:
-            # No deterministic code found. If user requested LLM, send the prompt.
-            if use_llm:
-                # craft a system instruction that asks for python in a ```python``` block that uses df, pd, plt
-                context = get_df_context(df)
-                system = (
-                    "You are a helpful data analyst and will respond with Python code only.\n"
-                    "You must return code inside a ```python ... ``` block. The DataFrame is named `df`.\n"
-                    "Use pandas for data manipulation and matplotlib for charts. Do not import heavy libs.\n"
-                    "If returning a chart, produce matplotlib code that draws the figure (no show()) and nothing else.\n"
-                    "Here is the dataset schema:\n"
-                    f"{context}"
-                )
-                raw = system + "\n# User prompt: " + final_prompt
-                llm_out = ask_llm(raw, model=llm_model, provider=provider, api_key=api_key)
-                if llm_out.startswith("[LLM-missing]") or llm_out.startswith("[LLM-"):
-                    st.warning("LLM unavailable or returned an error. Falling back to built-in behavior is not possible for this custom prompt.")
-                    st.write(llm_out)
-                    st.stop()
-                # attempt to extract python block
-                if "```python" in llm_out:
-                    try:
-                        code = llm_out.split("```python")[1].split("```")[0]
-                        res = run_code(df, code)
-                    except Exception as e:
-                        st.error(f"Failed to execute code from LLM: {e}")
-                        st.write(llm_out)
-                        st.stop()
-                else:
-                    st.error("LLM did not return a python code block. Showing raw LLM output:")
-                    st.write(llm_out)
-                    st.stop()
+    try:
+        df = load_data(filepath)
+        
+        # 1. Try deterministic code generation
+        code = prompt_to_code(prompt, df)
+        
+        # 2. If no code, ask LLM
+        if not code:
+            context = get_df_context(df)
+            system = (
+                "You are a helpful data analyst and will respond with Python code only.\n"
+                "You must return code inside a ```python ... ``` block. The DataFrame is named `df`.\n"
+                "Use pandas for data manipulation and matplotlib for charts. Do not import heavy libs.\n"
+                "If returning a chart, produce matplotlib code that draws the figure (no show()) and nothing else.\n"
+                "Here is the dataset schema:\n"
+                f"{context}"
+            )
+            full_prompt = system + "\n# User prompt: " + prompt
+            
+            # Use configured model from env (handled in analyst.py defaults or passed here)
+            # We rely on analyst.py reading env vars if we pass None, but let's be explicit if needed.
+            # actually analyst.py ask_llm reads env if api_key is None.
+            llm_out = ask_llm(full_prompt)
+            
+            if llm_out.startswith("[LLM"):
+                return jsonify({'error': llm_out})
+                
+            if "```python" in llm_out:
+                code = llm_out.split("```python")[1].split("```")[0]
             else:
-                st.error("This is a custom prompt that the app cannot deterministically convert to code. Enable 'Use local LLM' in the sidebar to let a local model generate Python, or edit your prompt to match one of the suggested patterns.")
-                st.stop()
+                return jsonify({'error': "LLM did not return Python code", 'debug': llm_out})
 
-    # Display result
-    if res["type"] == "text":
-        st.markdown("#### Output (text)")
-        st.text(res["output"])
-    elif res["type"] == "dataframe":
-        st.markdown("#### Output (table)")
-        st.dataframe(res["df"])
-        # Provide CSV download
-        csv = res["df"].to_csv(index=False).encode("utf-8")
-        st.download_button("Download result as CSV", data=csv, file_name="result.csv", mime="text/csv")
-    elif res["type"] == "image":
-        st.markdown("#### Output (chart)")
-        st.image(res["path"], use_column_width=True)
-    else:
-        st.write("Unknown result type", res)
+        # 3. Run code
+        res = run_code(df, code)
+        
+        if res['type'] == 'text':
+            return jsonify({'type': 'text', 'output': res['output']})
+        
+        elif res['type'] == 'dataframe':
+            df_res = res['df']
+            # Convert to dict for JSON
+            # limit output size?
+            return jsonify({
+                'type': 'dataframe', 
+                'data': df_res.head(100).to_dict(orient='records'),
+                'columns': df_res.columns.tolist()
+            })
+            
+        elif res['type'] == 'image':
+            # Move image to static
+            src_path = res['path']
+            filename = os.path.basename(src_path)
+            dst_path = os.path.join(STATIC_PLOTS_FOLDER, filename)
+            shutil.copy(src_path, dst_path)
+            # URL for frontend
+            url = f"/static/plots/{filename}"
+            return jsonify({'type': 'image', 'url': url})
+            
+        else:
+            return jsonify({'error': 'Unknown result type'})
+
+    except Exception as e:
+        return jsonify({'error': f"Processing failed: {str(e)}"})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', debug=True, port=5000)

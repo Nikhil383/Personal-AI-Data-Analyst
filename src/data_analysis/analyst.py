@@ -312,35 +312,18 @@ def prompt_to_code(prompt: str, df: pd.DataFrame):
     return None
 
 
-def ask_llm(prompt: str, model: str = "llama3.1", provider: str = "ollama", api_key: str = None) -> str:
+def ask_llm(prompt: str, model: str = None, provider: str = "gemini", api_key: str = None) -> str:
     """
     Dispatch prompt to the selected LLM provider.
+    Currently only supports Gemini.
     """
-    if provider == "gemini":
-        return ask_gemini(prompt, api_key, model)
-    else:
-        # Default to ollama
-        return ask_ollama(prompt, model)
+    # Load from env if not provided
+    if not api_key:
+        api_key = os.getenv("GOOGLE_API_KEY")
+    if not model:
+        model = os.getenv("GEMINI_MODEL", "gemini-pro")
 
-
-def ask_ollama(prompt: str, model: str = "llama3.1", timeout: int = 60) -> str:
-    """
-    Send prompt to local Ollama via CLI. Returns stdout text.
-    If ollama is not installed or fails, returns an error string starting with [LLM...].
-    Expect the model to return code inside ```python blocks.
-    """
-    try:
-        proc = subprocess.run(["ollama", "run", model], input=prompt.encode("utf-8"),
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
-        out = proc.stdout.decode("utf-8", errors="replace")
-        err = proc.stderr.decode("utf-8", errors="replace")
-        if not out and err:
-            return f"[LLM-error] {err}"
-        return out
-    except FileNotFoundError:
-        return "[LLM-missing] ollama not found on PATH."
-    except Exception as e:
-        return f"[LLM-failed] {e}"
+    return ask_gemini(prompt, api_key, model)
 
 
 def ask_gemini(prompt: str, api_key: str, model: str = "gemini-pro") -> str:

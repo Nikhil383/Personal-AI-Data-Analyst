@@ -1,14 +1,14 @@
 # Makefile for Personal AI Data Analyst
 
 IMAGE_NAME = personal-ai-data-analyst
-PORT = 8501
+PORT = 5000
 
 .PHONY: help install run docker-build docker-run clean
 
 help:
 	@echo "Available commands:"
 	@echo "  make install       - Install dependencies (requires uv)"
-	@echo "  make run           - Run the Streamlit app locally"
+	@echo "  make run           - Run the Flask app locally"
 	@echo "  make docker-build  - Build the Docker image"
 	@echo "  make docker-run    - Run the Docker container"
 	@echo "  make clean         - Remove temporary files"
@@ -19,7 +19,7 @@ install:
 	uv pip install -e .
 
 run:
-	streamlit run app.py
+	python app.py
 
 docker-build:
 	docker build -t $(IMAGE_NAME) .
