@@ -11,7 +11,8 @@ load_dotenv()
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
-from data_analysis.analyst import load_data, suggest_prompts, prompt_to_code, run_code, ask_llm, get_df_context
+from data_analysis.analyst import load_data, suggest_prompts, prompt_to_code, run_code, generate_analysis_code, get_df_context, generate_initial_report
+from data_analysis.vision import analyze_plot
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -44,8 +45,16 @@ def upload_file():
         # Load just to get suggestions
         df = load_data(filepath)
         suggestions = suggest_prompts(df)
-        # Convert df info to JSON compatible format if needed, mostly we just need suggestions now
-        return jsonify({'message': 'File uploaded', 'suggestions': suggestions})
+        
+        # Generate initial report (Auto-Analysis)
+        # We can do this async in a real app, but for now we wait (it's text only)
+        initial_report = generate_initial_report(df)
+        
+        return jsonify({
+            'message': 'File uploaded', 
+            'suggestions': suggestions,
+            'initial_report': initial_report
+        })
     except Exception as e:
         return jsonify({'error': str(e)})
 
@@ -68,58 +77,49 @@ def analyze():
         
         # 2. If no code, ask LLM
         if not code:
-            context = get_df_context(df)
-            system = (
-                "You are a helpful data analyst and will respond with Python code only.\n"
-                "You must return code inside a ```python ... ``` block. The DataFrame is named `df`.\n"
-                "Use pandas for data manipulation and matplotlib for charts. Do not import heavy libs.\n"
-                "If returning a chart, produce matplotlib code that draws the figure (no show()) and nothing else.\n"
-                "Here is the dataset schema:\n"
-                f"{context}"
-            )
-            full_prompt = system + "\n# User prompt: " + prompt
+            # New centralized way
+            code = generate_analysis_code(df, prompt)
             
-            # Use configured model from env (handled in analyst.py defaults or passed here)
-            # We rely on analyst.py reading env vars if we pass None, but let's be explicit if needed.
-            # actually analyst.py ask_llm reads env if api_key is None.
-            llm_out = ask_llm(full_prompt)
-            
-            if llm_out.startswith("[LLM"):
-                return jsonify({'error': llm_out})
-                
-            if "```python" in llm_out:
-                code = llm_out.split("```python")[1].split("```")[0]
-            else:
-                return jsonify({'error': "LLM did not return Python code", 'debug': llm_out})
+            if code.startswith("[LLM"):
+               return jsonify({'error': code})
 
         # 3. Run code
         res = run_code(df, code)
         
+        response_data = {'type': 'text', 'output': ''}
+        
         if res['type'] == 'text':
-            return jsonify({'type': 'text', 'output': res['output']})
+            response_data = {'type': 'text', 'output': res['output']}
         
         elif res['type'] == 'dataframe':
             df_res = res['df']
-            # Convert to dict for JSON
-            # limit output size?
-            return jsonify({
+            response_data = {
                 'type': 'dataframe', 
                 'data': df_res.head(100).to_dict(orient='records'),
-                'columns': df_res.columns.tolist()
-            })
+                'columns': df_res.columns.tolist(),
+                'output': "Here is the data you requested:"
+            }
             
         elif res['type'] == 'image':
-            # Move image to static
             src_path = res['path']
             filename = os.path.basename(src_path)
             dst_path = os.path.join(STATIC_PLOTS_FOLDER, filename)
             shutil.copy(src_path, dst_path)
-            # URL for frontend
             url = f"/static/plots/{filename}"
-            return jsonify({'type': 'image', 'url': url})
+            
+            # Vision Analysis
+            vision_insight = analyze_plot(dst_path)
+            
+            response_data = {
+                'type': 'image', 
+                'url': url,
+                'output': vision_insight  # Add the vision analysis as text output
+            }
             
         else:
             return jsonify({'error': 'Unknown result type'})
+
+        return jsonify(response_data)
 
     except Exception as e:
         return jsonify({'error': f"Processing failed: {str(e)}"})

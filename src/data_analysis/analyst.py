@@ -343,6 +343,84 @@ def ask_gemini(prompt: str, api_key: str, model: str = "gemini-pro") -> str:
         return f"[LLM-failed] {str(e)}"
 
 
+def generate_analysis_code(df: pd.DataFrame, user_prompt: str, api_key: str = None) -> str:
+    """
+    Generate Python code for data analysis based on a user prompt and DataFrame context.
+    Uses a robust system prompt to ensure high-quality, executable code.
+    """
+    context = get_df_context(df)
+    
+    system_prompt = textwrap.dedent(f"""
+    You are an expert Data Analyst and Python Programmer.
+    Your task is to write Python code to analyze the provided DataFrame `df` based on the user's request.
+
+    ### DataSet Context
+    {context}
+
+    ### Rules & Guidelines
+    1. **DataFrame Name**: The DataFrame is already loaded and named `df`. Do NOT load it again.
+    2. **Libraries**: Use `pandas`, `numpy`, and `matplotlib.pyplot` (as `plt`). Do NOT import other plotting libraries like seaborn or plotly unless explicitly asked (and installed).
+    3. **Output Format**:
+       - Return ONLY valid Python code inside a single ```python ... ``` block.
+       - Do NOT output explanations or markdown outside the code block.
+    4. **Result Handling**:
+       - If the result is a textual answer (number, string, summary), assign it to a variable named `result`.
+       - If the result is a DataFrame (subset, grouping), assign it to a variable named `result`.
+       - If the user asks for a plot/chart:
+         - Create the plot using `plt`.
+         - Set a title, labels, and handle figure size (e.g., `plt.figure(figsize=(10,6))`).
+         - Do NOT call `plt.show()`.
+         - Assign `result_img_path = None` (the execution engine handles saving the current figure).
+    5. **Data Handling**:
+       - Handle missing values if appropriate (drop or fill) to avoid errors.
+       - Sort values if asking for "top" or "bottom" items.
+       - If a column name has spaces, use `df['Column Name']` syntax.
+
+    ### specific instructions
+    User Prompt: {user_prompt}
+    """)
+    
+    # Call the LLM
+    llm_response = ask_llm(system_prompt, api_key=api_key)
+    
+    # Simple post-processing
+    if "```python" in llm_response:
+        code = llm_response.split("```python")[1].split("```")[0].strip()
+    elif "```" in llm_response:
+        code = llm_response.split("```")[1].split("```")[0].strip()
+    else:
+        # fallback if model just returned code without blocks (rare)
+        code = llm_response
+        
+    return code
+
+
+
+
+
+def generate_initial_report(df: pd.DataFrame, api_key: str = None) -> str:
+    """
+    Generate a markdown summary of the dataset using the LLM.
+    """
+    context = get_df_context(df)
+    prompt = textwrap.dedent(f"""
+    You are a Senior Data Analyst. A user has just uploaded a new dataset.
+    
+    ### Dataset Preview
+    {context}
+    
+    ### Task
+    Provide a concise "Initial Assessment" of this data in Markdown format.
+    1.  **Title**: A catchy name for this dataset analysis.
+    2.  **Summary**: 2-3 sentences describing what this data appears to be.
+    3.  **Key Columns**: Bullet points highlighting the most interesting columns.
+    4.  **Actionable Questions**: Suggest 3 specific, complex questions the user could ask about this data.
+    
+    Keep it professional but encouraging.
+    """)
+    
+    return ask_llm(prompt, api_key=api_key)
+
 
 # ----------------- Execute generated code safely -----------------
 def run_code(df: pd.DataFrame, code: str, timeout_seconds: int = 30):

@@ -3,180 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Data Analyst</title>
+    <title>AI Data Analyst V2</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>AI Data Analyst</h1>
-            <p>Upload your data and let AI uncover insights.</p>
-        </header>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <header>
+                <h1>AI Analyst ⚡</h1>
+                <p>Intelligent Data Insights</p>
+            </header>
 
-        <div class="card" id="upload-section">
             <div class="upload-area" id="drop-zone">
-                <div class="upload-icon">📂</div>
-                <h3>Drag & Drop Data File</h3>
-                <p>or click to browse (CSV, Excel, JSON)</p>
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📂</div>
+                <div style="font-weight: 600; color: #e2e8f0;">Upload Dataset</div>
+                <div style="font-size: 0.8rem; color: #94a3b8;">CSV, Excel, JSON</div>
                 <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.json">
             </div>
-            <div id="file-info" style="display: none; margin-top: 1rem; text-align: center;">
-                <p>Loaded: <strong id="filename"></strong></p>
-                <button id="change-file-btn" style="background: transparent; border: 1px solid var(--border-color);">Change File</button>
+
+            <div id="file-info" style="display: none;" class="file-info">
+                <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.25rem;">Active File</div>
+                <div id="filename" style="font-weight: 600; word-break: break-all;">data.csv</div>
+            </div>
+
+            <div style="margin-top: 1.5rem; flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+                <h3>Suggested Actions</h3>
+                <div class="suggestions-list" id="suggestions-container">
+                    <div class="suggestion-chip">Upload a file to see suggestions...</div>
+                </div>
             </div>
         </div>
 
-        <div class="card" id="analysis-section" style="display: none; opacity: 0; transition: opacity 0.5s;">
-            <h2>Ask your data</h2>
-            <div class="suggestions" id="suggestions-container">
-                <!-- Suggestions will be injected here -->
+        <!-- Main Chat -->
+        <div class="main-chat">
+            <div class="chat-history" id="chat-history">
+                <!-- Welcome Message -->
+                <div class="message ai">
+                    <div class="message-content">
+                        <strong>Hello! 👋</strong><br>
+                        I'm your AI Data Analyst through Antigravity. Upload a dataset to get started. I can analyze trends, create visualizations, and answer questions about your data.
+                    </div>
+                </div>
             </div>
-            
-            <div class="input-group">
-                <textarea id="prompt-input" placeholder="Describe the analysis you want..."></textarea>
-                <button id="run-btn">Run Analysis</button>
-            </div>
-            <div class="loader" id="loader"></div>
-        </div>
 
-        <div class="card result-area" id="result-section" style="display: none;">
-            <h3 id="result-title">Result</h3>
-            <div id="result-content"></div>
+            <div class="typing-indicator" id="typing-indicator">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+
+            <div class="input-area">
+                <textarea id="prompt-input" placeholder="Ask a question about your data..." disabled></textarea>
+                <button id="send-btn" class="send-btn" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </div>
         </div>
     </div>
 
     <script>
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
-        const fileInfo = document.getElementById('file-info');
-        const uploadSection = document.getElementById('upload-section');
-        const analysisSection = document.getElementById('analysis-section');
-        const suggestionsContainer = document.getElementById('suggestions-container');
+        const chatHistory = document.getElementById('chat-history');
         const promptInput = document.getElementById('prompt-input');
-        const runBtn = document.getElementById('run-btn');
-        const loader = document.getElementById('loader');
-        const resultSection = document.getElementById('result-section');
-        const resultContent = document.getElementById('result-content');
-        
-        // Drag & Drop
+        const sendBtn = document.getElementById('send-btn');
+        const suggestionsContainer = document.getElementById('suggestions-container');
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        // Utils
+        const scrollToBottom = () => chatHistory.scrollTop = chatHistory.scrollHeight;
+
+        function addMessage(role, content, isHtml=false) {
+            const div = document.createElement('div');
+            div.className = `message ${role}`;
+            div.innerHTML = `<div class="message-content">${isHtml ? content : marked.parse(content)}</div>`;
+            chatHistory.appendChild(div);
+            scrollToBottom();
+            return div;
+        }
+
+        function setThinking(isThinking) {
+            typingIndicator.style.display = isThinking ? 'inline-flex' : 'none';
+            scrollToBottom();
+            promptInput.disabled = isThinking;
+            sendBtn.disabled = isThinking;
+            if(!isThinking) promptInput.focus();
+        }
+
+        // File Upload
         dropZone.addEventListener('click', () => fileInput.click());
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-        });
         fileInput.addEventListener('change', () => {
             if(fileInput.files.length) handleFile(fileInput.files[0]);
         });
 
-        document.getElementById('change-file-btn').addEventListener('click', () => {
-            location.reload(); // Simple reset
-        });
-
         function handleFile(file) {
             document.getElementById('filename').innerText = file.name;
-            dropZone.style.display = 'none';
-            fileInfo.style.display = 'block';
+            document.getElementById('file-info').style.display = 'block';
+            
+            // clear suggestions
+            suggestionsContainer.innerHTML = '<div style="color:#94a3b8; font-size:0.85rem;">Analyzing file structure...</div>';
             
             const formData = new FormData();
             formData.append('file', file);
 
-            fetch('/upload', {
-                method: 'POST',
-                body: formData
-            })
+            setThinking(true);
+
+            fetch('/upload', { method: 'POST', body: formData })
             .then(res => res.json())
             .then(data => {
+                setThinking(false);
                 if(data.error) {
-                    alert(data.error);
+                    addMessage('ai', `❌ **Error uploading file:** ${data.error}`);
                     return;
                 }
-                showAnalysisSection(data.suggestions);
+                
+                // Update suggestions
+                suggestionsContainer.innerHTML = '';
+                data.suggestions.forEach(s => {
+                    const chip = document.createElement('div');
+                    chip.className = 'suggestion-chip';
+                    chip.innerText = s;
+                    chip.onclick = () => {
+                        promptInput.value = s;
+                        handleSend();
+                    };
+                    suggestionsContainer.appendChild(chip);
+                });
+
+                // Show Initial Report
+                addMessage('ai', data.initial_report || "File uploaded successfully.");
+                promptInput.disabled = false;
+                sendBtn.disabled = false;
             })
-            .catch(err => alert('Upload failed'));
-        }
-
-        function showAnalysisSection(suggestions) {
-            analysisSection.style.display = 'block';
-            // Trigger reflow
-            analysisSection.offsetHeight;
-            analysisSection.style.opacity = '1';
-
-            suggestionsContainer.innerHTML = '';
-            suggestions.forEach(s => {
-                const chip = document.createElement('div');
-                chip.className = 'chip';
-                chip.innerText = s;
-                chip.onclick = () => {
-                    promptInput.value = s;
-                    runAnalysis();
-                };
-                suggestionsContainer.appendChild(chip);
+            .catch(err => {
+                setThinking(false);
+                addMessage('ai', `❌ **Network Error:** ${err.message}`);
             });
         }
 
-        runBtn.addEventListener('click', runAnalysis);
+        // Chat Interaction
+        function handleSend() {
+            const text = promptInput.value.trim();
+            if(!text) return;
 
-        function runAnalysis() {
-            const prompt = promptInput.value.trim();
-            if(!prompt) return;
-
-            runBtn.disabled = true;
-            loader.style.display = 'block';
-            resultSection.style.display = 'none';
-            resultContent.innerHTML = '';
+            addMessage('user', text);
+            promptInput.value = '';
+            setThinking(true);
 
             fetch('/analyze', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({prompt: prompt})
+                body: JSON.stringify({prompt: text})
             })
             .then(res => res.json())
             .then(data => {
-                displayResult(data);
+                setThinking(false);
+                if(data.error) {
+                    addMessage('ai', `⚠️ **I ran into an issue:**\n${data.error}`);
+                    return;
+                }
+                
+                let responseHtml = '';
+                if(data.type === 'image') {
+                    // Image + Vision Insight
+                    responseHtml += `<img src="${data.url}" alt="Analysis Chart">`;
+                    if(data.output) {
+                        responseHtml += `<div style="margin-top:0.75rem; padding:0.75rem; background:rgba(255,255,255,0.05); border-radius:0.5rem; font-size:0.9rem;"><strong>👁️ Vision Analysis:</strong><br>${marked.parse(data.output)}</div>`;
+                    }
+                } else if(data.type === 'dataframe') {
+                    // Table
+                    responseHtml += `<p>${data.output}</p>`;
+                    let table = '<div style="overflow-x: auto;"><table><thead><tr>';
+                    data.columns.forEach(c => table += `<th>${c}</th>`);
+                    table += '</tr></thead><tbody>';
+                    data.data.forEach(row => {
+                        table += '<tr>';
+                        data.columns.forEach(c => table += `<td>${row[c]}</td>`);
+                        table += '</tr>';
+                    });
+                    table += '</tbody></table></div>';
+                    responseHtml += table;
+                } else {
+                    // Text
+                    responseHtml = marked.parse(data.output);
+                }
+                
+                addMessage('ai', responseHtml, true);
             })
             .catch(err => {
-                alert('Analysis failed');
-            })
-            .finally(() => {
-                runBtn.disabled = false;
-                loader.style.display = 'none';
+                setThinking(false);
+                addMessage('ai', `❌ **Request Failed:** ${err.message}`);
             });
         }
 
-        function displayResult(data) {
-            resultSection.style.display = 'block';
-            if (data.error) {
-                resultContent.innerHTML = `<p style="color: #ef4444;">${data.error}</p>`;
-                return;
+        sendBtn.addEventListener('click', handleSend);
+        promptInput.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
             }
-
-            if (data.type === 'text') {
-                resultContent.innerHTML = `<pre style="white-space: pre-wrap;">${data.output}</pre>`;
-            } else if (data.type === 'dataframe') {
-                // simple table render
-                let html = '<div style="overflow-x: auto;"><table><thead><tr>';
-                data.columns.forEach(col => html += `<th>${col}</th>`);
-                html += '</tr></thead><tbody>';
-                data.data.forEach(row => {
-                    html += '<tr>';
-                    data.columns.forEach(col => html += `<td>${row[col]}</td>`);
-                    html += '</tr>';
-                });
-                html += '</tbody></table></div>';
-                resultContent.innerHTML = html;
-            } else if (data.type === 'image') {
-                resultContent.innerHTML = `<img src="${data.url}" class="result-image" alt="Analysis Result">`;
-            }
-        }
+        });
     </script>
 </body>
 </html>

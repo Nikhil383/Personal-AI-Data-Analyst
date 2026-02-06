@@ -1,57 +1,49 @@
-# Personal AI Data Analyst
+# Personal AI Data Analyst (V2 Production Architecture)
 
-Personal AI Data Analyst is a web application that allows users to analyze their data using AI. It is built using Streamlit and can be run locally.
+This project has been upgraded to a modular production-ready architecture.
 
-## Problem Statement
+## Architecture
+- **Backend**: FastAPI (`app/main.py`)
+- **Frontend**: Streamlit (`frontend/streamlit_app.py`)
+- **Core Logic**:
+  - `app/analytics/pandas_analyzer.py`: Dataframe operations
+  - `app/llm/gemini_client.py`: LLM & Vision integration
 
-Analyzing data typically requires technical knowledge of Python, statistics, and visualization libraries. Many non-technical users struggle with:
+## Setup
 
-- Understanding data types
+1. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   # OR
+   pip install fastapi uvicorn streamlit pandas matplotlib langchain-google-genai python-dotenv python-multipart
+   ```
 
-- Writing analysis code
+2. **Environment Variables**
+   Ensure `.env` contains:
+   ```
+   GOOGLE_API_KEY=your_key_here
+   GEMINI_MODEL=gemini-pro
+   ```
 
-- Detecting patterns or anomalies
+## Running the App
 
-- Performing quick visual or statistical exploration
+You need to run **both** the backend and frontend.
 
-Personal AI Data Analyst solves this by acting as an automated “AI Data Scientist” that understands natural language and translates it into reproducible, executable Python code—running entirely locally.
+**1. Start Backend API**
+```bash
+uvicorn app.main:app --reload
+```
+API will allow uploads at `http://localhost:8000`.
 
-## Tech Stack
+**2. Start Frontend UI** (in a new terminal)
+```bash
+streamlit run frontend/streamlit_app.py
+```
+The UI will open in your browser (usually `http://localhost:8501`).
 
-- Streamlit
-- Python
-- pandas
-- matplotlib
-- ollama
-- uv
-- Docker (new)
-
-## Learnings & Challenges
-
-### Learnings
-
-- How to integrate LLMs with deterministic analysis workflows
-- Building a safe execution environment for AI-generated code
-- Converting ambiguous natural language into reproducible Python logic.
-
-### Challenges
-
-- Ensuring safety while executing LLM-generated code
-
-- Handling corrupted or large dataset files
-
-- Maintaining accuracy in column-type detection
-
-- Keeping the UI responsive even with large datasets
-
-## Future Improvements
-
-- UI will remove model selection option (auto-detect model)
-- Support for SQL queries
-- Plugin system for advanced analysis modules
-- Export entire analysis as a PDF report
-- Add caching layer for faster re-runs
-
-## License
-
-MIT
+## Directory Structure
+(As requested)
+- `app/`: Source code for API and Analytics logic.
+- `frontend/`: Streamlit UI code.
+- `data/`: Data storage.
+- `notebooks/`: Jupyter notebooks.
