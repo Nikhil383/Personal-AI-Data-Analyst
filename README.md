@@ -1,4 +1,4 @@
-# Personal AI Data Analyst (V2 Production Architecture)
+# Personal AI Data Analyst 
 
 This project has been upgraded to a modular production-ready architecture.
 
