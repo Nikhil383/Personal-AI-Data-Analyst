@@ -1,31 +1,28 @@
 # Makefile for Personal AI Data Analyst
 
 IMAGE_NAME = personal-ai-data-analyst
-PORT = 5000
 
 .PHONY: help install run docker-build docker-run clean
 
 help:
 	@echo "Available commands:"
-	@echo "  make install       - Install dependencies (requires uv)"
-	@echo "  make run           - Run the Flask app locally"
+	@echo "  make install       - Install dependencies using uv"
+	@echo "  make run           - Run the Streamlit app"
 	@echo "  make docker-build  - Build the Docker image"
 	@echo "  make docker-run    - Run the Docker container"
 	@echo "  make clean         - Remove temporary files"
 
 install:
-	uv venv
-	@echo "Activate venv with: . .venv/bin/activate (Linux/Mac) or .venv\\Scripts\\activate (Windows)"
-	uv pip install -e .
+	uv sync
 
 run:
-	python app.py
+	uv run streamlit run frontend/streamlit_app.py
 
 docker-build:
 	docker build -t $(IMAGE_NAME) .
 
 docker-run:
-	docker run -p $(PORT):$(PORT) $(IMAGE_NAME)
+	docker run -p 8501:8501 $(IMAGE_NAME)
 
 clean:
 	rm -rf __pycache__
