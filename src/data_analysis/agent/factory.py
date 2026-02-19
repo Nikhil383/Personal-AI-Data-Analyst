@@ -22,7 +22,7 @@ def create_analyst_agent(df: pd.DataFrame, api_key: str = None):
 
     # specialized model for data analysis (using flash for speed/cost or pro for reasoning)
     model = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash", 
+        model="gemini-2.5-flash", 
         google_api_key=api_key,
         temperature=0, # Low temperature for code generation
         convert_system_message_to_human=True

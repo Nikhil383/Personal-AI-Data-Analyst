@@ -14,8 +14,8 @@ class Config:
     LANGSMITH_API_KEY: Optional[str] = os.getenv("LANGSMITH_API_KEY")
     
     # Model configurations
-    SUPERVISOR_MODEL = "gemini-1.5-pro"  # More powerful for routing decisions
-    AGENT_MODEL = "gemini-1.5-flash"  # Faster for specialized tasks
+    SUPERVISOR_MODEL = "gemini-2.5-flash"  # More powerful for routing decisions
+    AGENT_MODEL = "gemini-2.5-flash"  # Faster for specialized tasks
     
     # Temperature settings
     SUPERVISOR_TEMPERATURE = 0.1
