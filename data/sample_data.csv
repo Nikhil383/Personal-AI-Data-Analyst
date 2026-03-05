@@ -1,0 +1,50 @@
+"""Sample data for AI Data Analyst"""
+product,category,region,quarter,sales,quantity,profit,customer_rating,discount
+Laptop,Electronics,North,Q1,15000,50,4500,4.5,0.10
+Smartphone,Electronics,South,Q1,22000,110,8800,4.7,0.15
+Tablet,Electronics,East,Q1,8000,40,2400,4.2,0.08
+Headphones,Electronics,West,Q1,3500,100,1050,4.4,0.12
+Monitor,Electronics,North,Q2,12000,60,3600,4.6,0.10
+Keyboard,Electronics,South,Q2,2500,150,750,4.3,0.05
+Mouse,Electronics,East,Q2,1800,200,540,4.1,0.03
+Chair,Furniture,West,Q1,9000,30,3600,4.8,0.20
+Table,Furniture,North,Q1,14000,25,5600,4.6,0.18
+Desk,Furniture,South,Q1,11000,35,4400,4.5,0.15
+Sofa,Furniture,East,Q2,18000,20,7200,4.7,0.22
+Bed,Furniture,West,Q2,22000,15,8800,4.9,0.25
+Shelf,Furniture,North,Q2,5000,40,2000,4.4,0.12
+Notebook,Stationery,South,Q1,1200,500,480,4.2,0.05
+Pen Set,Stationery,East,Q1,800,300,320,4.3,0.04
+Paper Pack,Stationery,West,Q1,500,800,200,4.0,0.02
+Markers,Stationery,North,Q2,600,250,240,4.1,0.03
+Folders,Stationery,South,Q2,400,400,160,4.2,0.02
+Stapler,Stationery,East,Q2,300,150,120,4.5,0.01
+Calculator,Office,West,Q1,2500,80,875,4.4,0.10
+Printer,Office,North,Q1,8000,25,2800,4.6,0.15
+Scanner,Office,South,Q2,4500,20,1575,4.3,0.12
+Projector,Office,East,Q2,12000,10,4800,4.8,0.18
+Webcam,Office,West,Q2,3000,50,1050,4.5,0.08
+Laptop,Electronics,North,Q2,18000,60,5400,4.6,0.12
+Smartphone,Electronics,South,Q2,25000,120,10000,4.8,0.15
+Tablet,Electronics,East,Q2,9500,45,2850,4.3,0.10
+Headphones,Electronics,West,Q2,4000,110,1200,4.5,0.12
+Monitor,Electronics,North,Q1,11000,55,3300,4.5,0.08
+Keyboard,Electronics,South,Q1,2200,140,660,4.2,0.04
+Mouse,Electronics,East,Q1,1600,180,480,4.0,0.02
+Chair,Furniture,South,Q2,9500,32,3800,4.7,0.18
+Table,Furniture,East,Q2,13000,28,5200,4.5,0.15
+Desk,Furniture,West,Q2,10500,38,4200,4.6,0.16
+Sofa,Furniture,North,Q1,17000,22,6800,4.8,0.20
+Bed,Furniture,South,Q1,20000,18,8000,4.9,0.22
+Shelf,Furniture,East,Q1,4800,42,1920,4.3,0.10
+Notebook,Stationery,West,Q2,1400,520,560,4.3,0.06
+Pen Set,Stationery,North,Q2,900,320,360,4.4,0.05
+Paper Pack,Stationery,South,Q2,550,850,220,4.1,0.03
+Markers,Stationery,East,Q2,650,270,260,4.2,0.04
+Folders,Stationery,West,Q2,450,420,180,4.3,0.03
+Stapler,Stationery,North,Q1,280,160,112,4.4,0.01
+Calculator,Office,South,Q1,2300,85,805,4.3,0.08
+Printer,Office,East,Q1,7500,28,2625,4.5,0.12
+Scanner,Office,West,Q1,4200,22,1470,4.2,0.10
+Projector,Office,North,Q2,11500,12,4600,4.7,0.16
+Webcam,Office,South,Q2,2800,55,980,4.4,0.06
