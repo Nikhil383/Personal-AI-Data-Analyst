@@ -31,7 +31,16 @@ env/
 # Environment variables
 .env
 .env.*
-!.env.example
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Linting
+.ruff_cache/
+.mypy_cache/
 
 # Common IDEs
 .vscode/
@@ -48,10 +57,12 @@ $RECYCLE.BIN/
 # Project specific
 output/
 .claude/
+.gemini/
 
 # Data files (keep sample_data.csv)
 data/*
 !data/sample_data.csv
+!data/.keep
 
 # Jupyter Notebook
 .ipynb_checkpoints

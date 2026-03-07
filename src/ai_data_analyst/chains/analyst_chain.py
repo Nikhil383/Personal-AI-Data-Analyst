@@ -2,6 +2,7 @@
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
+from langchain_experimental.agents import create_pandas_dataframe_agent
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import pandas as pd
@@ -26,54 +27,28 @@ class AnalystChain:
         self.llm = ChatGoogleGenerativeAI(
             model=model,
             google_api_key=api_key,
-            temperature=0.3,
+            temperature=0.0,
         )
-
-    def _build_data_summary(self) -> str:
-        """Build a summary of the data for context."""
-        summary_parts = [
-            f"Dataset has {len(self.df)} rows and {len(self.df.columns)} columns.",
-            f"Columns: {', '.join(self.df.columns)}.",
-        ]
-
-        numeric_cols = self.df.select_dtypes(include=['number']).columns.tolist()
-        if numeric_cols:
-            summary_parts.append(f"Numeric columns: {', '.join(numeric_cols)}.")
-
-        cat_cols = self.df.select_dtypes(include=['object', 'category']).columns.tolist()
-        if cat_cols:
-            summary_parts.append(f"Categorical columns: {', '.join(cat_cols)}.")
-
-        return " ".join(summary_parts)
+        self.agent = create_pandas_dataframe_agent(
+            self.llm,
+            self.df,
+            verbose=True,
+            allow_dangerous_code=True,
+            prefix="You are an expert data analyst. Use the provided dataframe `df` to answer questions securely and accurately. If calculation is needed, use python to calculate the results."
+        )
 
     def query(self, user_query: str) -> str:
         """Process a natural language query about the data."""
-        data_summary = self._build_data_summary()
-
-        prompt = PromptTemplate(
-            input_variables=["data_summary", "query", "data_preview"],
-            template="""You are an expert data analyst. Use the provided data to answer questions.
-
-Data Summary: {data_summary}
-
-Data Preview (first 10 rows):
-{data_preview}
-
-User Question: {query}
-
-Provide a clear, accurate answer based on the data. If calculation is needed, show the results."""
-        )
-
-        chain = prompt | self.llm
-        data_preview = self.df.head(10).to_string()
-
-        response = chain.invoke({
-            "data_summary": data_summary,
-            "query": user_query,
-            "data_preview": data_preview
-        })
-
-        return response.content.strip()
+        try:
+            response = self.agent.invoke(user_query)
+            if isinstance(response, dict) and 'output' in response:
+                return str(response['output']).strip()
+            return str(response).strip()
+        except Exception as e:
+            error_msg = str(e)
+            if "429 RESOURCE_EXHAUSTED" in error_msg or "Quota exceeded" in error_msg:
+                return "⚠️ **Rate Limit Reached**: The free tier of the Gemini API has exhausted its quota (requests per minute/day). Please wait a bit and try again, or upgrade your Gemini API tier."
+            return f"Error executing query: {error_msg}"
 
     def suggest_chart(self, user_query: str) -> Dict[str, Any]:
         """Suggest appropriate chart based on query."""
