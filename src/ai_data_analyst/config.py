@@ -30,6 +30,12 @@ if not GOOGLE_API_KEY or GOOGLE_API_KEY == "your_api_key_here":
 # LLM Configuration
 GEMINI_MODEL = "gemini-2.5-flash"
 
+# LLM Parameters
+MAX_OUTPUT_TOKENS = 2048
+TEMPERATURE = 0.2
+TOP_P = 0.95
+TOP_K = 40
+
 # Data Analysis Settings
 MAX_PREVIEW_ROWS = 100
 MAX_FILE_SIZE_MB = 100

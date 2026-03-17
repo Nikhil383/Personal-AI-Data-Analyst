@@ -242,21 +242,39 @@ def display_data_preview():
     st.dataframe(df.head(100), use_container_width=True)
 
 
-def handle_query(query: str):
-    """Handle user query."""
+def handle_query(query: str, show_reasoning: bool = False):
+    """
+    Handle user query using ReAct pattern.
+
+    Workflow: User Question → LangChain Agent → Gemini LLM → Pandas Tool → Answer
+    """
     if not query.strip():
         return
 
     # Add to history
     st.session_state.chat_history.append({"role": "user", "content": query})
 
-    # Get response from chain
-    response = st.session_state.chain.query(query)
+    # Get response from chain using the new analyze method
+    analysis_response = st.session_state.chain.analyze(query)
 
-    # Add response to history
-    st.session_state.chat_history.append({"role": "assistant", "content": response})
+    # Format the response
+    if show_reasoning:
+        # Include reasoning steps
+        full_response = st.session_state.chain.get_workflow_summary(analysis_response)
+        response_content = full_response
+    else:
+        # Just the answer
+        response_content = analysis_response.final_answer
 
-    return response
+    # Add response to history with metadata
+    st.session_state.chat_history.append({
+        "role": "assistant",
+        "content": response_content,
+        "chart_type": analysis_response.chart_type,
+        "chart_columns": analysis_response.chart_columns
+    })
+
+    return analysis_response
 
 
 def display_chat_history():
@@ -266,6 +284,12 @@ def display_chat_history():
             st.markdown(f'<div class="user-message">👤 {msg["content"]}</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="assistant-message">📊 {msg["content"]}</div>', unsafe_allow_html=True)
+            # Show chart suggestion if available
+            if "chart_type" in msg and msg["chart_type"]:
+                with st.expander("📈 Suggested Visualization"):
+                    st.write(f"**Chart Type:** {msg['chart_type']}")
+                    if "chart_columns" in msg and msg["chart_columns"]:
+                        st.write(f"**Columns:** {', '.join(msg['chart_columns'])}")
 
 
 def main():
@@ -371,6 +395,24 @@ def main():
         with tab2:
             st.subheader("Ask Questions About Your Data")
 
+            # ReAct workflow explanation
+            with st.expander("ℹ️ How it works (ReAct Pattern)", expanded=False):
+                st.markdown("""
+                **Analysis Workflow:**
+                ```
+                User Question → LangChain Agent → Gemini LLM (Reasoning) → Pandas Tool → Answer
+                ```
+                1. **Understand** - Analyze your question
+                2. **Reason** - Plan data operations needed
+                3. **Act** - Execute pandas operations
+                4. **Observe** - Review results
+                5. **Answer** - Provide natural language response
+                """)
+
+            # Show reasoning toggle
+            show_reasoning = st.checkbox("🔍 Show reasoning steps", value=False,
+                                        help="Display the step-by-step reasoning process")
+
             # Display chat history
             display_chat_history()
 
@@ -391,8 +433,8 @@ def main():
                     st.rerun()
 
             if send_btn and query:
-                with st.spinner("Analyzing..."):
-                    response = handle_query(query)
+                with st.spinner("🤔 Thinking... Analyzing your data..."):
+                    response = handle_query(query, show_reasoning=show_reasoning)
                     st.rerun()
 
         with tab3:
