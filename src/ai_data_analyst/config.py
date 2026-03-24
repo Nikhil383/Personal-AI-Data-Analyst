@@ -31,7 +31,7 @@ if not GOOGLE_API_KEY or GOOGLE_API_KEY == "your_api_key_here":
 GEMINI_MODEL = "gemini-2.5-flash"
 
 # LLM Parameters
-MAX_OUTPUT_TOKENS = 2048
+MAX_OUTPUT_TOKENS = 8192
 TEMPERATURE = 0.2
 TOP_P = 0.95
 TOP_K = 40
