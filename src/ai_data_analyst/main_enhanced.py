@@ -1,4 +1,12 @@
-"""AI Data Analyst - Main Application"""
+"""AI Data Analyst - Enhanced Main Application with Improved LLM Responses
+
+Features:
+- Enhanced ReAct chain with confidence scoring
+- Query classification
+- Follow-up question suggestions
+- Better reasoning visualization
+- Validation feedback
+"""
 import streamlit as st
 import pandas as pd
 import os
@@ -8,18 +16,18 @@ from config import GOOGLE_API_KEY, CHARTS_DIR, DATA_DIR
 from data_loader import DataLoader
 from analyzer import DataAnalyzer
 from visualizer import DataVisualizer
-from chains import AnalystChain
+from chains import AnalystChain, EnhancedAnalystChain
 
 
 # Page configuration
 st.set_page_config(
-    page_title="AI Data Analyst",
-    page_icon="📊",
+    page_title="AI Data Analyst - Enhanced",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for dark theme
+# Custom CSS for dark theme with enhancements
 st.markdown("""
 <style>
     /* Main background */
@@ -31,6 +39,49 @@ st.markdown("""
     h1, h2, h3 {
         color: #E6EDF3 !important;
         font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    /* Confidence badges */
+    .confidence-high {
+        background-color: rgba(63, 185, 80, 0.2);
+        border: 1px solid #3FB950;
+        color: #3FB950;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: bold;
+        display: inline-block;
+    }
+    .confidence-medium {
+        background-color: rgba(210, 153, 34, 0.2);
+        border: 1px solid #D29922;
+        color: #D29922;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: bold;
+        display: inline-block;
+    }
+    .confidence-low {
+        background-color: rgba(248, 81, 73, 0.2);
+        border: 1px solid #F85149;
+        color: #F85149;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-weight: bold;
+        display: inline-block;
+    }
+
+    /* Reasoning steps */
+    .reasoning-step {
+        background-color: #161B22;
+        border-left: 3px solid #00D4AA;
+        padding: 12px 16px;
+        margin: 8px 0;
+        border-radius: 4px;
+    }
+    .reasoning-step-header {
+        color: #00D4AA;
+        font-weight: bold;
+        margin-bottom: 8px;
     }
 
     /* Cards */
@@ -152,6 +203,16 @@ st.markdown("""
     [data-testid="stMetricLabel"] {
         color: #8B949E !important;
     }
+
+    /* Query type badge */
+    .query-type-badge {
+        background-color: #1E3A5F;
+        color: #00D4AA;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -166,6 +227,8 @@ def initialize_session_state():
         st.session_state.visualizer = None
     if 'chain' not in st.session_state:
         st.session_state.chain = None
+    if 'use_enhanced_chain' not in st.session_state:
+        st.session_state.use_enhanced_chain = True  # Default to enhanced
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     if 'file_loaded' not in st.session_state:
@@ -183,15 +246,18 @@ def load_data(uploaded_file):
         # Load data
         df = DataLoader.load_file(str(temp_path))
 
-        # Initialize analyzer and visualizer
+        # Initialize analyzers and chains
         analyzer = DataAnalyzer(df)
         visualizer = DataVisualizer(df, CHARTS_DIR)
-        chain = AnalystChain(df, GOOGLE_API_KEY)
+        
+        # Initialize both chains
+        standard_chain = AnalystChain(df, GOOGLE_API_KEY)
+        enhanced_chain = EnhancedAnalystChain(df, GOOGLE_API_KEY)
 
         st.session_state.dataframe = df
         st.session_state.analyzer = analyzer
         st.session_state.visualizer = visualizer
-        st.session_state.chain = chain
+        st.session_state.chain = enhanced_chain if st.session_state.use_enhanced_chain else standard_chain
         st.session_state.file_loaded = True
 
         # Clean up temp file
@@ -242,11 +308,19 @@ def display_data_preview():
     st.dataframe(df.head(100), use_container_width=True)
 
 
-def handle_query(query: str, show_reasoning: bool = False):
-    """
-    Handle user query using ReAct pattern.
+def get_confidence_badge(confidence: float) -> str:
+    """Get HTML badge for confidence level."""
+    if confidence >= 0.8:
+        return f'<span class="confidence-high">✅ {confidence:.0%} Confidence</span>'
+    elif confidence >= 0.5:
+        return f'<span class="confidence-medium">⚠️ {confidence:.0%} Confidence</span>'
+    else:
+        return f'<span class="confidence-low">❌ {confidence:.0%} Confidence</span>'
 
-    Workflow: User Question → LangChain Agent → Gemini LLM → Pandas Tool → Answer
+
+def handle_query(query: str, show_reasoning: bool = False, show_follow_ups: bool = True):
+    """
+    Handle user query using enhanced ReAct pattern.
     """
     if not query.strip():
         return
@@ -254,42 +328,112 @@ def handle_query(query: str, show_reasoning: bool = False):
     # Add to history
     st.session_state.chat_history.append({"role": "user", "content": query})
 
-    # Get response from chain using the new analyze method
-    analysis_response = st.session_state.chain.analyze(query)
-
-    # Format the response
-    if show_reasoning:
-        # Include reasoning steps
-        full_response = st.session_state.chain.get_workflow_summary(analysis_response)
-        response_content = full_response
-    else:
-        # Just the answer
-        response_content = analysis_response.final_answer
-
-    # Add response to history with metadata
-    st.session_state.chat_history.append({
-        "role": "assistant",
-        "content": response_content,
-        "chart_type": analysis_response.chart_type,
-        "chart_columns": analysis_response.chart_columns
-    })
+    # Get response from chain
+    chain = st.session_state.chain
+    is_enhanced = isinstance(chain, EnhancedAnalystChain)
+    
+    with st.spinner("🤔 Analyzing your data..."):
+        if is_enhanced:
+            analysis_response = chain.analyze(query)
+            response_content = analysis_response.final_answer
+            
+            # Store enhanced metadata
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": response_content,
+                "chart_type": analysis_response.chart_type,
+                "chart_columns": analysis_response.chart_columns,
+                "confidence": analysis_response.confidence_score,
+                "query_type": analysis_response.query_type,
+                "reasoning_steps": analysis_response.reasoning_steps,
+                "validation_notes": analysis_response.validation_notes,
+                "follow_ups": chain.suggest_follow_up_questions(analysis_response) if show_follow_ups else [],
+                "is_enhanced": True,
+            })
+        else:
+            # Use standard chain
+            analysis_response = chain.analyze(query)
+            response_content = analysis_response.final_answer
+            
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": response_content,
+                "chart_type": analysis_response.chart_type,
+                "chart_columns": analysis_response.chart_columns,
+                "is_enhanced": False,
+            })
 
     return analysis_response
 
 
-def display_chat_history():
-    """Display chat history."""
-    for msg in st.session_state.chat_history:
+def display_chat_history(show_reasoning: bool = False):
+    """Display chat history with enhanced features."""
+    for i, msg in enumerate(st.session_state.chat_history):
         if msg["role"] == "user":
             st.markdown(f'<div class="user-message">👤 {msg["content"]}</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="assistant-message">📊 {msg["content"]}</div>', unsafe_allow_html=True)
-            # Show chart suggestion if available
-            if "chart_type" in msg and msg["chart_type"]:
-                with st.expander("📈 Suggested Visualization"):
-                    st.write(f"**Chart Type:** {msg['chart_type']}")
-                    if "chart_columns" in msg and msg["chart_columns"]:
-                        st.write(f"**Columns:** {', '.join(msg['chart_columns'])}")
+            # Enhanced response with metadata
+            if msg.get("is_enhanced", False):
+                # Confidence badge
+                confidence = msg.get("confidence", 1.0)
+                confidence_badge = get_confidence_badge(confidence)
+                
+                # Query type
+                query_type = msg.get("query_type", "general")
+                
+                st.markdown(f"""
+                <div class="assistant-message">
+                    <div style="margin-bottom: 8px;">
+                        {confidence_badge}
+                        <span class="query-type-badge">🏷️ {query_type.title()}</span>
+                    </div>
+                    📊 {msg["content"]}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Show reasoning if requested
+                if show_reasoning and "reasoning_steps" in msg:
+                    with st.expander("🔍 View Reasoning Steps", expanded=False):
+                        for step in msg["reasoning_steps"]:
+                            step_icon = "✅" if step.confidence >= 0.8 else "⚠️" if step.confidence >= 0.5 else "❌"
+                            st.markdown(f"""
+                            <div class="reasoning-step">
+                                <div class="reasoning-step-header">{step_icon} Step {step.step}: {step.action.upper()}</div>
+                                <strong>Thought:</strong> {step.thought}<br>
+                                {f'<strong>Observation:</strong> {step.observation}' if step.observation else ''}
+                            </div>
+                            """, unsafe_allow_html=True)
+                
+                # Show validation notes
+                if "validation_notes" in msg and msg["validation_notes"]:
+                    if "Validation warning" in msg["validation_notes"]:
+                        st.warning(f"⚠️ {msg['validation_notes']}")
+                    else:
+                        st.success(f"✅ {msg['validation_notes']}")
+                
+                # Show follow-up suggestions
+                if "follow_ups" in msg and msg["follow_ups"]:
+                    st.markdown("### 💡 Suggested Follow-up Questions")
+                    for j, follow_up in enumerate(msg["follow_ups"], 1):
+                        if st.button(f"{j}. {follow_up}", key=f"followup_{i}_{j}"):
+                            # Set as new query
+                            st.session_state.query_input = follow_up
+                            st.rerun()
+                
+                # Show chart suggestion
+                if msg.get("chart_type"):
+                    with st.expander("📈 Suggested Visualization"):
+                        st.write(f"**Chart Type:** {msg['chart_type']}")
+                        if msg.get("chart_columns"):
+                            st.write(f"**Columns:** {', '.join(msg['chart_columns'])}")
+            else:
+                # Standard response
+                st.markdown(f'<div class="assistant-message">📊 {msg["content"]}</div>', unsafe_allow_html=True)
+                if msg.get("chart_type"):
+                    with st.expander("📈 Suggested Visualization"):
+                        st.write(f"**Chart Type:** {msg['chart_type']}")
+                        if msg.get("chart_columns"):
+                            st.write(f"**Columns:** {', '.join(msg['chart_columns'])}")
 
 
 def main():
@@ -297,8 +441,8 @@ def main():
     initialize_session_state()
 
     # Header
-    st.title("🤖 AI Data Analyst")
-    st.markdown("### Your intelligent data analysis assistant")
+    st.title("🚀 AI Data Analyst - Enhanced")
+    st.markdown("### Your intelligent data analysis assistant with improved reasoning")
     st.markdown("---")
 
     # Sidebar
@@ -322,6 +466,30 @@ def main():
                     st.error(message)
 
             st.divider()
+
+            # Chain selection
+            st.header("⚙️ Analysis Mode")
+            use_enhanced = st.checkbox(
+                "Use Enhanced Chain",
+                value=st.session_state.use_enhanced_chain,
+                help="Enhanced chain provides confidence scores, validation, and follow-up suggestions"
+            )
+            
+            if use_enhanced != st.session_state.use_enhanced_chain:
+                st.session_state.use_enhanced_chain = use_enhanced
+                if st.session_state.file_loaded:
+                    # Reinitialize chain
+                    if use_enhanced:
+                        st.session_state.chain = EnhancedAnalystChain(
+                            st.session_state.dataframe, 
+                            GOOGLE_API_KEY
+                        )
+                    else:
+                        st.session_state.chain = AnalystChain(
+                            st.session_state.dataframe, 
+                            GOOGLE_API_KEY
+                        )
+                    st.success(f"Switched to {'Enhanced' if use_enhanced else 'Standard'} chain")
 
             # Data operations
             st.header("📊 Data Operations")
@@ -366,19 +534,20 @@ def main():
     if not st.session_state.file_loaded:
         # Welcome screen
         st.markdown("""
-        ### Welcome to AI Data Analyst! 🚀
+        ### Welcome to Enhanced AI Data Analyst! 🚀
 
         Get started by uploading a data file in the sidebar.
+
+        **✨ Enhanced Features:**
+        - 📊 **Confidence Scoring** - Know how reliable each answer is
+        - 🏷️ **Query Classification** - Better understanding of your questions
+        - 🔍 **Validation** - Automatic answer validation with warnings
+        - 💡 **Follow-up Suggestions** - Smart question recommendations
+        - 📈 **Detailed Reasoning** - Step-by-step analysis breakdown
 
         **Supported file types:**
         - CSV (.csv)
         - Excel (.xlsx, .xls)
-
-        **Features:**
-        - 📊 Load and preview data
-        - 🔍 Ask questions in natural language
-        - 📈 Generate visualizations
-        - 💡 Get AI-powered insights
 
         ---
         """)
@@ -395,26 +564,32 @@ def main():
         with tab2:
             st.subheader("Ask Questions About Your Data")
 
-            # ReAct workflow explanation
-            with st.expander("ℹ️ How it works (ReAct Pattern)", expanded=False):
+            # Enhanced ReAct workflow explanation
+            with st.expander("ℹ️ Enhanced ReAct Pattern", expanded=False):
                 st.markdown("""
-                **Analysis Workflow:**
+                **Enhanced Analysis Workflow:**
                 ```
-                User Question → LangChain Agent → Gemini LLM (Reasoning) → Pandas Tool → Answer
+                User Question → Query Classification → LLM Reasoning → Pandas Tool → Validation → Answer + Confidence Score
                 ```
-                1. **Understand** - Analyze your question
-                2. **Reason** - Plan data operations needed
-                3. **Act** - Execute pandas operations
-                4. **Observe** - Review results
-                5. **Answer** - Provide natural language response
+                
+                **Improvements:**
+                1. **Classify** - Identify query type for better routing
+                2. **Understand** - Analyze question and relevant columns
+                3. **Reason** - Step-by-step planning
+                4. **Act** - Execute pandas operations
+                5. **Validate** - Check answer quality and reasonableness
+                6. **Answer** - Provide response with confidence score
                 """)
 
-            # Show reasoning toggle
-            show_reasoning = st.checkbox("🔍 Show reasoning steps", value=False,
-                                        help="Display the step-by-step reasoning process")
+            # Options
+            col1, col2 = st.columns(2)
+            with col1:
+                show_reasoning = st.checkbox("🔍 Show reasoning steps", value=False)
+            with col2:
+                show_follow_ups = st.checkbox("💡 Show follow-up suggestions", value=True)
 
             # Display chat history
-            display_chat_history()
+            display_chat_history(show_reasoning=show_reasoning)
 
             # Query input
             query = st.text_area(
@@ -424,7 +599,7 @@ def main():
                 key="query_input"
             )
 
-            col1, col2 = st.columns([1, 5])
+            col1, col2, col3 = st.columns([1, 1, 4])
             with col1:
                 send_btn = st.button("🔍 Analyze", type="primary")
             with col2:
@@ -433,9 +608,8 @@ def main():
                     st.rerun()
 
             if send_btn and query:
-                with st.spinner("🤔 Thinking... Analyzing your data..."):
-                    response = handle_query(query, show_reasoning=show_reasoning)
-                    st.rerun()
+                response = handle_query(query, show_reasoning=show_reasoning, show_follow_ups=show_follow_ups)
+                st.rerun()
 
         with tab3:
             st.subheader("Create Visualizations")
@@ -518,7 +692,7 @@ def main():
     st.markdown("---")
     st.markdown(
         "<div style='text-align: center; color: #8B949E;'>"
-        "AI Data Analyst powered by LangChain & Gemini API"
+        "Enhanced AI Data Analyst powered by LangChain & Gemini API 🚀"
         "</div>",
         unsafe_allow_html=True
     )
