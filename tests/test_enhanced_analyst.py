@@ -6,6 +6,11 @@ This script tests the enhanced analyst chain with:
 3. Various query types
 """
 import sys
+import io
+# Force UTF-8 encoding for standard output and error to prevent UnicodeEncodeError on Windows CP1252 consoles
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -71,7 +76,7 @@ def create_test_datasets():
     }
 
 
-def test_query_classifier():
+def run_query_classifier_test():
     """Test the query classifier with various queries."""
     print("\n" + "="*60)
     print("Testing Query Classifier")
@@ -98,7 +103,7 @@ def test_query_classifier():
     return results
 
 
-def test_enhanced_chain(df: pd.DataFrame, dataset_name: str, test_queries: list):
+def run_enhanced_chain(df: pd.DataFrame, dataset_name: str, test_queries: list):
     """Test enhanced analyst chain with a dataset and queries."""
     print("\n" + "="*60)
     print(f"Testing Enhanced Analyst Chain - {dataset_name}")
@@ -164,9 +169,9 @@ def test_enhanced_chain(df: pd.DataFrame, dataset_name: str, test_queries: list)
 
 def run_comprehensive_tests():
     """Run comprehensive tests on all datasets."""
-    print("\n" + "🚀"*30)
+    print("\n" + "="*60)
     print("Starting Comprehensive Enhanced Analyst Tests")
-    print("🚀"*30)
+    print("="*60)
     
     # Create test datasets
     datasets = create_test_datasets()
@@ -201,7 +206,7 @@ def run_comprehensive_tests():
     # Test each dataset
     for dataset_name, df in datasets.items():
         queries = test_queries_by_dataset[dataset_name]
-        results = test_enhanced_chain(df, dataset_name, queries)
+        results = run_enhanced_chain(df, dataset_name, queries)
         all_results[dataset_name] = results
     
     # Summary
@@ -223,7 +228,7 @@ def run_comprehensive_tests():
     return all_results
 
 
-def test_with_sample_data():
+def run_with_sample_data_test():
     """Test with the actual sample data file."""
     print("\n" + "="*60)
     print("Testing with Sample Data File")
@@ -250,20 +255,20 @@ def test_with_sample_data():
         "What is the average customer rating by category?",
     ]
     
-    results = test_enhanced_chain(df, 'sample_data', test_queries)
+    results = run_enhanced_chain(df, 'sample_data', test_queries)
     return results
 
 
 if __name__ == "__main__":
     # Test query classifier
-    classifier_results = test_query_classifier()
+    classifier_results = run_query_classifier_test()
     
     # Test with generated datasets
     comprehensive_results = run_comprehensive_tests()
     
     # Test with sample data
-    sample_results = test_with_sample_data()
+    sample_results = run_with_sample_data_test()
     
-    print("\n" + "✅"*30)
+    print("\n" + "="*60)
     print("All tests completed!")
-    print("✅"*30)
+    print("="*60)
