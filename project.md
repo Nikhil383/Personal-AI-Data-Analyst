@@ -1,188 +1,766 @@
-# Enterprise AI Data Analyst
+# PROJECT.md
+# Enterprise AI Data Analyst v2 (Production-Grade Agentic AI System)
 
-## Overview
+## Goal
 
-An enterprise-grade AI Data Analyst platform that enables business users
-to query structured data using natural language, generate safe SQL,
-visualize insights, create reports, and receive business recommendations
-powered by Gemini and agentic workflows.
+Transform the existing AI Data Analyst application into a production-grade enterprise AI system that demonstrates modern AI engineering practices.
 
-## Objectives
+The project should showcase:
 
--   Convert natural language into SQL.
--   Execute safe SQL against PostgreSQL.
--   Generate dashboards and business insights.
--   Support conversational analytics.
--   Export reports.
--   Demonstrate production-grade architecture.
+- LangGraph Agentic Workflows
+- FastAPI Backend
+- Streamlit Frontend
+- Gemini API
+- PostgreSQL
+- Docker
+- CI/CD
+- RAG for Business Metadata
+- Observability
+- Production Architecture
 
-## Tech Stack
+This project should be interview-ready for AI Engineer, GenAI Engineer, and Forward Deployed Engineer roles.
 
-  Layer             Technology
-  ----------------- -----------------------------------------------------
-  Frontend          Next.js, React, TypeScript, Tailwind CSS, shadcn/ui
-  Backend           FastAPI
-  LLM               Gemini 2.5 Pro / Flash
-  Agent Framework   LangGraph
-  Database          PostgreSQL
-  ORM               SQLAlchemy
-  Vector Database   Qdrant
-  Embeddings        Gemini Embeddings
-  Authentication    Clerk/Auth.js
-  Charts            Apache ECharts
-  Queue             Redis + Celery
-  Monitoring        Langfuse
-  Packaging         uv
-  Deployment        Docker
+---
 
-## Architecture
+# Existing Features
 
-``` text
-User
-  │
-Next.js Dashboard
-  │
-FastAPI
-  │
-LangGraph Agents
-  ├── Intent Agent
-  ├── SQL Generator
-  ├── SQL Validator
-  ├── Execution Agent
-  ├── Visualization Agent
-  ├── Insight Agent
-  └── Report Agent
-  │
-PostgreSQL + Qdrant
-  │
-Gemini API
+Current project already supports:
+
+- CSV / Excel Upload
+- Natural Language Querying
+- Gemini API
+- LangChain
+- Data Analysis
+- Chart Generation
+- Streamlit UI
+
+---
+
+# Target Architecture
+
+```
+                    User
+
+                      │
+
+              Streamlit Frontend
+
+                      │
+
+                  REST API
+
+                 (FastAPI)
+
+                      │
+
+               LangGraph Workflow
+
+                      │
+
+ ┌─────────────────────────────────────────────┐
+ │                                             │
+ │ Intent Detection Agent                      │
+ │ Schema Retrieval Agent                      │
+ │ SQL Generation Agent                        │
+ │ SQL Validation Agent                        │
+ │ Query Execution Agent                       │
+ │ Visualization Agent                         │
+ │ Business Insight Agent                      │
+ │ Recommendation Agent                        │
+ └─────────────────────────────────────────────┘
+
+                      │
+
+          PostgreSQL + Pandas
+
+                      │
+
+            Charts + Insights
+
+                      │
+
+                Final Response
 ```
 
-## Core Features
+---
 
-1.  Natural Language → SQL
-2.  Safe SQL validation
-3.  Interactive dashboards
-4.  Automatic chart selection
-5.  Executive business insights
-6.  KPI generation
-7.  Report export (PDF/Markdown/PPT)
-8.  Conversational memory
-9.  Data quality analysis
-10. Semantic search over data dictionary
+# Tech Stack
 
-## Database Schema
+## AI
 
-### customers
+- Gemini 2.5 Flash
+- LangGraph
+- LangChain
+- Google AI SDK
 
--   customer_id
--   customer_name
--   country
--   credit_limit
--   risk_score
+---
 
-### invoices
+## Backend
 
--   invoice_id
--   customer_id
--   invoice_date
--   due_date
--   amount
--   status
+- FastAPI
+- Pydantic
+- Uvicorn
 
-### payments
+---
 
--   payment_id
--   invoice_id
--   payment_date
--   payment_amount
+## Database
 
-## LangGraph Workflow
+- PostgreSQL
+- SQLAlchemy
 
-``` text
-User Query
-    ↓
-Intent Detection
-    ↓
-Schema Retrieval
-    ↓
-SQL Generation
-    ↓
-SQL Validation
-    ↓
-Execute Query
-    ↓
-Visualization
-    ↓
-Business Insights
-    ↓
-Report Generation
+---
+
+## Frontend
+
+- Streamlit
+
+---
+
+## DevOps
+
+- Docker
+- Docker Compose
+- GitHub Actions
+
+---
+
+## Observability
+
+- LangSmith
+
+---
+
+## Future
+
+- Redis
+- Celery
+- AWS Lambda
+
+---
+
+# Folder Structure
+
 ```
-
-## Folder Structure
-
-``` text
 enterprise-ai-data-analyst/
-├── backend/
-│   ├── app/
-│   │   ├── agents/
-│   │   ├── api/
-│   │   ├── database/
-│   │   ├── prompts/
-│   │   ├── services/
-│   │   └── main.py
-│   ├── tests/
-│   └── pyproject.toml
-├── frontend/
-├── docker/
-├── docs/
-└── README.md
+
+src/
+
+    backend/
+
+        api/
+
+        routes/
+
+        services/
+
+        agents/
+
+        graph/
+
+        database/
+
+        models/
+
+        schemas/
+
+        utils/
+
+    frontend/
+
+    shared/
+
+docker/
+
+tests/
+
+docs/
+
 ```
 
-## Development Roadmap
+---
 
-### Phase 1
+# Project Roadmap
 
--   Backend
--   PostgreSQL
--   Gemini integration
--   NL-to-SQL
+---
 
-### Phase 2
+## Phase 1
 
--   Frontend
--   Charts
--   Authentication
+Backend Separation
 
-### Phase 3
+Current
 
--   LangGraph multi-agent workflow
--   SQL validation
--   Conversational memory
+```
+Streamlit
+↓
 
-### Phase 4
+LLM
+```
 
--   Vector search
--   Report generation
--   Monitoring
--   Docker deployment
+Target
 
-## Resume Highlights
+```
+Streamlit
 
--   Enterprise AI analytics platform using Gemini, FastAPI, LangGraph,
-    PostgreSQL, and Next.js.
--   Multi-agent workflow for SQL generation, validation, visualization,
-    and reporting.
--   Business-focused insights with safe query execution and
-    conversational analytics.
+↓
 
-## Future Enhancements
+FastAPI
 
--   Role-based access control
--   Multi-database connectors
--   Scheduled analytics
--   Slack/Microsoft Teams integration
--   Forecasting models
--   Voice analytics
--   MCP server integration
--   BI tool connectors (Power BI/Tableau)
+↓
+
+LLM
+```
+
+Tasks
+
+- Create FastAPI project
+- Create REST endpoints
+- Move business logic into backend
+- Keep Streamlit as UI only
+
+---
+
+## Phase 2
+
+Database Layer
+
+Tasks
+
+- Store uploaded datasets
+
+- PostgreSQL integration
+
+- SQLAlchemy ORM
+
+- Data versioning
+
+Endpoints
+
+```
+POST /upload
+
+GET /datasets
+
+DELETE /dataset
+
+GET /columns
+```
+
+---
+
+## Phase 3
+
+LangGraph Migration
+
+Replace LangChain chain with LangGraph.
+
+Workflow
+
+```
+START
+
+↓
+
+Load Dataset
+
+↓
+
+Understand User Query
+
+↓
+
+Retrieve Dataset Metadata
+
+↓
+
+Generate SQL
+
+↓
+
+Validate SQL
+
+↓
+
+Execute Query
+
+↓
+
+Generate Visualization
+
+↓
+
+Generate Business Insight
+
+↓
+
+Generate Recommendations
+
+↓
+
+END
+```
+
+---
+
+# LangGraph State
+
+```python
+class GraphState(TypedDict):
+
+    user_query: str
+
+    dataset_name: str
+
+    dataframe: pd.DataFrame
+
+    schema: dict
+
+    generated_sql: str
+
+    sql_result: Any
+
+    visualization: dict
+
+    insight: str
+
+    recommendation: str
+
+    retry_count: int
+
+    error: str
+```
+
+---
+
+# LangGraph Nodes
+
+## Node 1
+
+Dataset Loader
+
+Responsibilities
+
+- Load dataframe
+- Validate dataset
+- Store metadata
+
+---
+
+## Node 2
+
+Intent Classifier
+
+Determine
+
+- Analysis
+
+- Aggregation
+
+- Trend
+
+- Visualization
+
+- Correlation
+
+---
+
+## Node 3
+
+Schema Retrieval
+
+Return
+
+- columns
+
+- datatype
+
+- statistics
+
+- null values
+
+---
+
+## Node 4
+
+SQL Generator
+
+Gemini generates SQL
+
+Prompt includes
+
+- schema
+
+- column names
+
+- user query
+
+---
+
+## Node 5
+
+SQL Validator
+
+Validate
+
+- syntax
+
+- missing columns
+
+- invalid table
+
+- SQL injection
+
+If failed
+
+↓
+
+Retry SQL generation
+
+---
+
+## Node 6
+
+Query Executor
+
+Execute SQL
+
+Return dataframe
+
+---
+
+## Node 7
+
+Visualization Generator
+
+Automatically choose
+
+- Histogram
+
+- Bar
+
+- Pie
+
+- Scatter
+
+- Heatmap
+
+- Line
+
+- Boxplot
+
+---
+
+## Node 8
+
+Insight Generator
+
+Gemini explains
+
+- trends
+
+- anomalies
+
+- business impact
+
+---
+
+## Node 9
+
+Recommendation Agent
+
+Example
+
+Sales dropped
+
+↓
+
+Suggest
+
+Increase promotions
+
+Restock inventory
+
+Check seasonal effects
+
+---
+
+# Conditional Edges
+
+```
+Generate SQL
+
+↓
+
+Validation
+
+↓
+
+Valid?
+
+YES
+
+↓
+
+Execute
+
+NO
+
+↓
+
+Retry
+```
+
+Retry
+
+Maximum
+
+3
+
+After
+
+3 retries
+
+↓
+
+Return error
+
+---
+
+# REST APIs
+
+Dataset
+
+```
+POST /upload
+```
+
+Analysis
+
+```
+POST /analyze
+```
+
+Visualization
+
+```
+POST /visualize
+```
+
+Metadata
+
+```
+GET /schema
+```
+
+Health
+
+```
+GET /health
+```
+
+---
+
+# Docker
+
+Containers
+
+```
+Frontend
+
+Backend
+
+PostgreSQL
+
+LangSmith
+```
+
+Use docker-compose.
+
+---
+
+# CI/CD
+
+GitHub Actions
+
+Pipeline
+
+```
+Lint
+
+↓
+
+Unit Tests
+
+↓
+
+Docker Build
+
+↓
+
+Deployment
+```
+
+---
+
+# Logging
+
+Use
+
+- Python logging
+
+- LangSmith tracing
+
+Log
+
+- Prompt
+
+- Response
+
+- Token usage
+
+- Errors
+
+---
+
+# Error Handling
+
+Handle
+
+- Invalid dataset
+
+- Missing columns
+
+- Empty dataframe
+
+- Invalid SQL
+
+- API timeout
+
+- Gemini rate limit
+
+- Database failure
+
+---
+
+# Security
+
+- Environment variables
+
+- API key protection
+
+- Input validation
+
+- SQL injection prevention
+
+- File validation
+
+- File size limits
+
+---
+
+# Stretch Goals
+
+## Multi Dataset Analysis
+
+User
+
+```
+Compare Sales.csv with Inventory.csv
+```
+
+---
+
+## Memory
+
+Remember previous analysis.
+
+---
+
+## RAG
+
+Store
+
+- dataset documentation
+
+- business glossary
+
+- KPI definitions
+
+Retrieve before answering.
+
+---
+
+## Multi-Agent Collaboration
+
+Planner Agent
+
+↓
+
+SQL Agent
+
+↓
+
+Visualization Agent
+
+↓
+
+Business Analyst Agent
+
+↓
+
+Reviewer Agent
+
+---
+
+## Authentication
+
+JWT
+
+User login
+
+Dataset ownership
+
+---
+
+## Export
+
+Generate
+
+- PDF reports
+
+- Excel reports
+
+- PowerPoint summaries
+
+---
+
+# Interview Talking Points
+
+After completion, be able to confidently explain:
+
+- Why LangGraph instead of LangChain?
+- Why FastAPI instead of Streamlit-only architecture?
+- How does the SQL validation node work?
+- What information is stored in GraphState?
+- How do conditional edges improve reliability?
+- How is hallucination reduced?
+- How does the retry mechanism work?
+- Why PostgreSQL instead of Pandas alone?
+- How would you scale the system for 10,000 concurrent users?
+- How would you deploy this on AWS?
+
+---
+
+# Success Criteria
+
+The project is complete when it demonstrates:
+
+- Production-ready architecture
+- Agentic workflows using LangGraph
+- REST APIs with FastAPI
+- PostgreSQL integration
+- SQL validation and retry logic
+- Dockerized deployment
+- CI/CD pipeline
+- LangSmith observability
+- Comprehensive documentation
+- Defensible architecture suitable for senior technical interviews

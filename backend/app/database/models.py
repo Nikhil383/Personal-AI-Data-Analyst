@@ -1,5 +1,8 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, create_engine
+from datetime import datetime
+
+from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey, Text, create_engine
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+
 from app.config import DATABASE_URL
 
 Base = declarative_base()
@@ -37,6 +40,30 @@ class Payment(Base):
     payment_amount = Column(Float, nullable=False)
 
     invoice = relationship("Invoice", back_populates="payments")
+
+class Dataset(Base):
+    __tablename__ = 'datasets'
+
+    dataset_id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)
+    filename = Column(String(255), nullable=False, unique=True)
+    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    row_count = Column(Integer, nullable=False)
+    column_count = Column(Integer, nullable=False)
+    columns = Column(Text, nullable=False)
+    file_path = Column(String(1024), nullable=False)
+
+    def to_dict(self):
+        return {
+            "dataset_id": self.dataset_id,
+            "name": self.name,
+            "filename": self.filename,
+            "uploaded_at": self.uploaded_at.isoformat() if self.uploaded_at else None,
+            "row_count": self.row_count,
+            "column_count": self.column_count,
+            "columns": self.columns,
+            "file_path": self.file_path,
+        }
 
 # Database session setup helper
 engine = create_engine(DATABASE_URL)

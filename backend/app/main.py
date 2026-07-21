@@ -1,13 +1,19 @@
-from fastapi import FastAPI, HTTPException, Depends
+import os
+import uuid
+from pathlib import Path
+from datetime import date, timedelta
+
+import pandas as pd
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.database.models import get_db, Base, engine, Customer, Invoice, Payment
+from app.config import UPLOAD_DIR
+from app.database.models import get_db, Base, engine, Customer, Invoice, Payment, Dataset
 from app.agents.workflow import workflow
-from datetime import date, timedelta
 import random
 
 app = FastAPI(title="Enterprise AI Data Analyst API")
@@ -105,6 +111,71 @@ def initialize_database(db: Session = Depends(get_db)):
                     db.commit()
                     
         return {"status": "success", "message": "Database tables created and seeded successfully."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/upload")
+async def upload_dataset(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    allowed_ext = {"csv", "xlsx"}
+    filename = Path(file.filename).name
+    extension = filename.split(".")[-1].lower()
+    if extension not in allowed_ext:
+        raise HTTPException(status_code=400, detail="Only CSV and XLSX files are supported.")
+
+    unique_name = f"{uuid.uuid4().hex}_{filename}"
+    file_path = UPLOAD_DIR / unique_name
+
+    try:
+        contents = await file.read()
+        file_path.write_bytes(contents)
+
+        if extension == "csv":
+            df = pd.read_csv(file_path)
+        else:
+            df = pd.read_excel(file_path)
+
+        dataset = Dataset(
+            name=filename,
+            filename=unique_name,
+            row_count=len(df),
+            column_count=len(df.columns),
+            columns=",".join([str(col) for col in df.columns]),
+            file_path=str(file_path)
+        )
+        db.add(dataset)
+        db.commit()
+        db.refresh(dataset)
+
+        return {"status": "success", "dataset": dataset.to_dict()}
+    except Exception as e:
+        if file_path.exists():
+            file_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/datasets")
+def list_datasets(db: Session = Depends(get_db)):
+    datasets = db.query(Dataset).order_by(Dataset.uploaded_at.desc()).all()
+    return {"datasets": [ds.to_dict() for ds in datasets]}
+
+@app.get("/api/dataset/{dataset_id}/columns")
+def get_dataset_columns(dataset_id: int, db: Session = Depends(get_db)):
+    dataset = db.query(Dataset).filter(Dataset.dataset_id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found.")
+    return {"dataset_id": dataset.dataset_id, "columns": dataset.columns.split(",")}
+
+@app.delete("/api/dataset/{dataset_id}")
+def delete_dataset(dataset_id: int, db: Session = Depends(get_db)):
+    dataset = db.query(Dataset).filter(Dataset.dataset_id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found.")
+    try:
+        if dataset.file_path and Path(dataset.file_path).exists():
+            Path(dataset.file_path).unlink()
+        db.delete(dataset)
+        db.commit()
+        return {"status": "success", "message": "Dataset deleted."}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))

@@ -39,6 +39,53 @@ except Exception:
 # Sidebar
 st.sidebar.header("Database Schema")
 
+upload_success = None
+uploaded_dataset = None
+uploaded_datasets = []
+
+uploaded_file = st.sidebar.file_uploader(
+    "Upload a dataset (CSV or XLSX)",
+    type=["csv", "xlsx"],
+    help="Upload a dataset to make it available for analysis."
+)
+
+if uploaded_file is not None:
+    with st.spinner("Uploading dataset..."):
+        try:
+            files = {"file": (uploaded_file.name, uploaded_file.getvalue())}
+            upload_res = requests.post(f"{BACKEND_URL}/api/upload", files=files)
+            if upload_res.status_code == 200:
+                upload_data = upload_res.json()
+                upload_success = upload_data.get("status") == "success"
+                uploaded_dataset = upload_data.get("dataset")
+                st.sidebar.success("Dataset uploaded successfully.")
+            else:
+                st.sidebar.error(f"Upload failed: {upload_res.text}")
+        except Exception as e:
+            st.sidebar.error(f"Error uploading dataset: {e}")
+
+try:
+    datasets_res = requests.get(f"{BACKEND_URL}/api/datasets")
+    if datasets_res.status_code == 200:
+        uploaded_datasets = datasets_res.json().get("datasets", [])
+except Exception:
+    uploaded_datasets = []
+
+if uploaded_dataset:
+    st.sidebar.markdown("### Latest uploaded dataset")
+    st.sidebar.write(f"**Name:** {uploaded_dataset.get('name')}")
+    st.sidebar.write(f"**Rows:** {uploaded_dataset.get('row_count')}")
+    st.sidebar.write(f"**Columns:** {uploaded_dataset.get('column_count')}")
+
+if uploaded_datasets:
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Uploaded Datasets")
+    for ds in uploaded_datasets:
+        with st.sidebar.expander(ds.get("name", "Unnamed Dataset")):
+            st.write(f"Rows: {ds.get('row_count')}")
+            st.write(f"Cols: {ds.get('column_count')}")
+            st.write(f"Uploaded: {ds.get('uploaded_at')}")
+
 if st.sidebar.button("Seed Mock Database", type="primary"):
     with st.spinner("Initializing and seeding database..."):
         try:
