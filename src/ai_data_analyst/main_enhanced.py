@@ -12,11 +12,11 @@ import pandas as pd
 import os
 from pathlib import Path
 
-from config import GOOGLE_API_KEY, CHARTS_DIR, DATA_DIR
+from config import GOOGLE_API_KEY, CHARTS_DIR, DATA_DIR, NO_INFO_MESSAGE
 from data_loader import DataLoader
 from analyzer import DataAnalyzer
 from visualizer import DataVisualizer
-from chains import AnalystChain, EnhancedAnalystChain
+from chains import AnalystChain, EnhancedAnalystChain, SQLAnalystChain
 
 
 # Page configuration
@@ -229,6 +229,8 @@ def initialize_session_state():
         st.session_state.chain = None
     if 'use_enhanced_chain' not in st.session_state:
         st.session_state.use_enhanced_chain = True  # Default to enhanced
+    if 'use_sql_chain' not in st.session_state:
+        st.session_state.use_sql_chain = True  # Default to LangGraph + SQL chain
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     if 'file_loaded' not in st.session_state:
@@ -250,14 +252,18 @@ def load_data(uploaded_file):
         analyzer = DataAnalyzer(df)
         visualizer = DataVisualizer(df, CHARTS_DIR)
         
-        # Initialize both chains
+        # Initialize chains
         standard_chain = AnalystChain(df, GOOGLE_API_KEY)
         enhanced_chain = EnhancedAnalystChain(df, GOOGLE_API_KEY)
+        sql_chain = SQLAnalystChain(df, GOOGLE_API_KEY)
 
         st.session_state.dataframe = df
         st.session_state.analyzer = analyzer
         st.session_state.visualizer = visualizer
-        st.session_state.chain = enhanced_chain if st.session_state.use_enhanced_chain else standard_chain
+        if st.session_state.use_sql_chain:
+            st.session_state.chain = sql_chain
+        else:
+            st.session_state.chain = enhanced_chain if st.session_state.use_enhanced_chain else standard_chain
         st.session_state.file_loaded = True
 
         # Clean up temp file
@@ -330,10 +336,25 @@ def handle_query(query: str, show_reasoning: bool = False, show_follow_ups: bool
 
     # Get response from chain
     chain = st.session_state.chain
+    is_sql = isinstance(chain, SQLAnalystChain)
     is_enhanced = isinstance(chain, EnhancedAnalystChain)
     
     with st.spinner("🤔 Analyzing your data..."):
-        if is_enhanced:
+        if is_sql:
+            analysis_response = chain.analyze(query)
+            response_content = analysis_response.final_answer
+            
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": response_content,
+                "chart_type": analysis_response.chart_type,
+                "chart_columns": analysis_response.chart_columns,
+                "sql_query": analysis_response.sql_query,
+                "no_info": analysis_response.no_info,
+                "is_sql": True,
+                "is_enhanced": False,
+            })
+        elif is_enhanced:
             analysis_response = chain.analyze(query)
             response_content = analysis_response.final_answer
             
@@ -427,8 +448,14 @@ def display_chat_history(show_reasoning: bool = False):
                         if msg.get("chart_columns"):
                             st.write(f"**Columns:** {', '.join(msg['chart_columns'])}")
             else:
-                # Standard response
-                st.markdown(f'<div class="assistant-message">📊 {msg["content"]}</div>', unsafe_allow_html=True)
+                # SQL / standard response
+                if msg.get("no_info"):
+                    st.warning(msg["content"])
+                else:
+                    st.markdown(f'<div class="assistant-message">📊 {msg["content"]}</div>', unsafe_allow_html=True)
+                if msg.get("sql_query"):
+                    with st.expander("🗄️ SQL Query Used"):
+                        st.code(msg["sql_query"], language="sql")
                 if msg.get("chart_type"):
                     with st.expander("📈 Suggested Visualization"):
                         st.write(f"**Chart Type:** {msg['chart_type']}")
@@ -469,15 +496,37 @@ def main():
 
             # Chain selection
             st.header("⚙️ Analysis Mode")
+            use_sql = st.checkbox(
+                "Use LangGraph + SQL Chain",
+                value=st.session_state.use_sql_chain,
+                help="Modern text-to-SQL workflow: LangGraph orchestrates Gemini SQL generation and DuckDB execution"
+            )
+            
+            if use_sql != st.session_state.use_sql_chain:
+                st.session_state.use_sql_chain = use_sql
+                if st.session_state.file_loaded:
+                    if use_sql:
+                        st.session_state.chain = SQLAnalystChain(
+                            st.session_state.dataframe, 
+                            GOOGLE_API_KEY
+                        )
+                    else:
+                        st.session_state.chain = EnhancedAnalystChain(
+                            st.session_state.dataframe, 
+                            GOOGLE_API_KEY
+                        )
+                    st.success(f"Switched to {'LangGraph + SQL' if use_sql else 'Enhanced'} chain")
+
             use_enhanced = st.checkbox(
                 "Use Enhanced Chain",
                 value=st.session_state.use_enhanced_chain,
-                help="Enhanced chain provides confidence scores, validation, and follow-up suggestions"
+                help="Enhanced chain provides confidence scores, validation, and follow-up suggestions",
+                disabled=st.session_state.use_sql_chain
             )
             
             if use_enhanced != st.session_state.use_enhanced_chain:
                 st.session_state.use_enhanced_chain = use_enhanced
-                if st.session_state.file_loaded:
+                if st.session_state.file_loaded and not st.session_state.use_sql_chain:
                     # Reinitialize chain
                     if use_enhanced:
                         st.session_state.chain = EnhancedAnalystChain(
@@ -539,11 +588,13 @@ def main():
         Get started by uploading a data file in the sidebar.
 
         **✨ Enhanced Features:**
+        - 🗄️ **LangGraph + SQL** - Text-to-SQL workflow with Gemini and DuckDB
         - 📊 **Confidence Scoring** - Know how reliable each answer is
         - 🏷️ **Query Classification** - Better understanding of your questions
         - 🔍 **Validation** - Automatic answer validation with warnings
         - 💡 **Follow-up Suggestions** - Smart question recommendations
         - 📈 **Detailed Reasoning** - Step-by-step analysis breakdown
+        - ℹ️ **No Info Available** - Honest fallback when data is missing
 
         **Supported file types:**
         - CSV (.csv)
@@ -564,21 +615,23 @@ def main():
         with tab2:
             st.subheader("Ask Questions About Your Data")
 
-            # Enhanced ReAct workflow explanation
-            with st.expander("ℹ️ Enhanced ReAct Pattern", expanded=False):
+            # LangGraph + SQL workflow explanation
+            with st.expander("ℹ️ Analysis Workflow", expanded=False):
                 st.markdown("""
-                **Enhanced Analysis Workflow:**
+                **Default Workflow (LangGraph + SQL):**
+                ```
+                User Question → LangGraph → Gemini (generate SQL) → DuckDB (execute SQL) → Gemini (generate answer)
+                ```
+                1. **Generate SQL** - Gemini converts your question into a SQL query
+                2. **Execute** - The SQL runs against your data in DuckDB
+                3. **Generate Answer** - Gemini summarizes the results in natural language
+                4. **No Info Available** - Unanswerable questions return "No info available"
+
+                **Alternative (Enhanced ReAct):**
                 ```
                 User Question → Query Classification → LLM Reasoning → Pandas Tool → Validation → Answer + Confidence Score
                 ```
-                
-                **Improvements:**
-                1. **Classify** - Identify query type for better routing
-                2. **Understand** - Analyze question and relevant columns
-                3. **Reason** - Step-by-step planning
-                4. **Act** - Execute pandas operations
-                5. **Validate** - Check answer quality and reasonableness
-                6. **Answer** - Provide response with confidence score
+                Toggle the "Use LangGraph + SQL Chain" checkbox in the sidebar to switch.
                 """)
 
             # Options
@@ -692,7 +745,7 @@ def main():
     st.markdown("---")
     st.markdown(
         "<div style='text-align: center; color: #8B949E;'>"
-        "Enhanced AI Data Analyst powered by LangChain & Gemini API 🚀"
+        "Enhanced AI Data Analyst powered by LangGraph, DuckDB SQL & Gemini API 🚀"
         "</div>",
         unsafe_allow_html=True
     )

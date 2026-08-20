@@ -98,7 +98,7 @@ def test_query_classifier():
     return results
 
 
-def test_enhanced_chain(df: pd.DataFrame, dataset_name: str, test_queries: list):
+def run_enhanced_chain(df: pd.DataFrame, dataset_name: str, test_queries: list):
     """Test enhanced analyst chain with a dataset and queries."""
     print("\n" + "="*60)
     print(f"Testing Enhanced Analyst Chain - {dataset_name}")
@@ -201,7 +201,7 @@ def run_comprehensive_tests():
     # Test each dataset
     for dataset_name, df in datasets.items():
         queries = test_queries_by_dataset[dataset_name]
-        results = test_enhanced_chain(df, dataset_name, queries)
+        results = run_enhanced_chain(df, dataset_name, queries)
         all_results[dataset_name] = results
     
     # Summary
@@ -250,7 +250,7 @@ def test_with_sample_data():
         "What is the average customer rating by category?",
     ]
     
-    results = test_enhanced_chain(df, 'sample_data', test_queries)
+    results = run_enhanced_chain(df, 'sample_data', test_queries)
     return results
 
 

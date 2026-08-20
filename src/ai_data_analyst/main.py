@@ -4,11 +4,11 @@ import pandas as pd
 import os
 from pathlib import Path
 
-from config import GOOGLE_API_KEY, CHARTS_DIR, DATA_DIR
+from config import GOOGLE_API_KEY, CHARTS_DIR, DATA_DIR, NO_INFO_MESSAGE
 from data_loader import DataLoader
 from analyzer import DataAnalyzer
 from visualizer import DataVisualizer
-from chains import AnalystChain
+from chains import SQLAnalystChain
 
 
 # Page configuration
@@ -186,7 +186,7 @@ def load_data(uploaded_file):
         # Initialize analyzer and visualizer
         analyzer = DataAnalyzer(df)
         visualizer = DataVisualizer(df, CHARTS_DIR)
-        chain = AnalystChain(df, GOOGLE_API_KEY)
+        chain = SQLAnalystChain(df, GOOGLE_API_KEY)
 
         st.session_state.dataframe = df
         st.session_state.analyzer = analyzer
@@ -244,9 +244,9 @@ def display_data_preview():
 
 def handle_query(query: str, show_reasoning: bool = False):
     """
-    Handle user query using ReAct pattern.
+    Handle user query using the LangGraph + SQL workflow.
 
-    Workflow: User Question → LangChain Agent → Gemini LLM → Pandas Tool → Answer
+    Workflow: User Question -> LangGraph -> Gemini (SQL) -> DuckDB -> Gemini (Answer)
     """
     if not query.strip():
         return
@@ -254,16 +254,14 @@ def handle_query(query: str, show_reasoning: bool = False):
     # Add to history
     st.session_state.chat_history.append({"role": "user", "content": query})
 
-    # Get response from chain using the new analyze method
+    # Get response from the SQL-based LangGraph chain
     analysis_response = st.session_state.chain.analyze(query)
 
     # Format the response
     if show_reasoning:
-        # Include reasoning steps
         full_response = st.session_state.chain.get_workflow_summary(analysis_response)
         response_content = full_response
     else:
-        # Just the answer
         response_content = analysis_response.final_answer
 
     # Add response to history with metadata
@@ -271,7 +269,9 @@ def handle_query(query: str, show_reasoning: bool = False):
         "role": "assistant",
         "content": response_content,
         "chart_type": analysis_response.chart_type,
-        "chart_columns": analysis_response.chart_columns
+        "chart_columns": analysis_response.chart_columns,
+        "sql_query": analysis_response.sql_query,
+        "no_info": analysis_response.no_info,
     })
 
     return analysis_response
@@ -283,7 +283,14 @@ def display_chat_history():
         if msg["role"] == "user":
             st.markdown(f'<div class="user-message">👤 {msg["content"]}</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="assistant-message">📊 {msg["content"]}</div>', unsafe_allow_html=True)
+            if msg.get("no_info"):
+                st.warning(msg["content"])
+            else:
+                st.markdown(f'<div class="assistant-message">📊 {msg["content"]}</div>', unsafe_allow_html=True)
+            # Show SQL query used
+            if "sql_query" in msg and msg["sql_query"]:
+                with st.expander("🗄️ SQL Query Used"):
+                    st.code(msg["sql_query"], language="sql")
             # Show chart suggestion if available
             if "chart_type" in msg and msg["chart_type"]:
                 with st.expander("📈 Suggested Visualization"):
@@ -395,18 +402,17 @@ def main():
         with tab2:
             st.subheader("Ask Questions About Your Data")
 
-            # ReAct workflow explanation
-            with st.expander("ℹ️ How it works (ReAct Pattern)", expanded=False):
+            # LangGraph + SQL workflow explanation
+            with st.expander("ℹ️ How it works (LangGraph + SQL)", expanded=False):
                 st.markdown("""
                 **Analysis Workflow:**
                 ```
-                User Question → LangChain Agent → Gemini LLM (Reasoning) → Pandas Tool → Answer
+                User Question → LangGraph → Gemini (generate SQL) → DuckDB (execute SQL) → Gemini (generate answer)
                 ```
-                1. **Understand** - Analyze your question
-                2. **Reason** - Plan data operations needed
-                3. **Act** - Execute pandas operations
-                4. **Observe** - Review results
-                5. **Answer** - Provide natural language response
+                1. **Generate SQL** - Gemini converts your question into a SQL query
+                2. **Execute** - The SQL runs against your data in DuckDB
+                3. **Generate Answer** - Gemini summarizes the results in natural language
+                4. **No Info Available** - If a question can't be answered, you'll see "No info available"
                 """)
 
             # Show reasoning toggle
@@ -518,7 +524,7 @@ def main():
     st.markdown("---")
     st.markdown(
         "<div style='text-align: center; color: #8B949E;'>"
-        "AI Data Analyst powered by LangChain & Gemini API"
+        "AI Data Analyst powered by LangGraph, DuckDB SQL & Gemini API"
         "</div>",
         unsafe_allow_html=True
     )

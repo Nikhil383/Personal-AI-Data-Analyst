@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 # Add src to sys.path
-sys.path.append(str(Path(__file__).parent.parent / "src" / "ai_data_analyst"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import pandas as pd
 from ai_data_analyst.chains.analyst_chain import AnalystChain
