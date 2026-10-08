@@ -1,0 +1,45 @@
+# .dockerignore
+# Version control
+.git
+.gitignore
+
+# Virtual environment and Python caches
+.venv
+venv
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Frontend build artifacts
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Temporary / sensitive files
+.env
+*.env.local
+*.log
+
+# Data and dynamic outputs (mount as volumes or generate in-container)
+data/
+outputs/
+notebooks/
+data_sample/
+
+# IDE / Editor configuration
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker / OS artifacts
+.DS_Store
+Thumbs.db
+Dockerfile*
+docker-compose*.yml
