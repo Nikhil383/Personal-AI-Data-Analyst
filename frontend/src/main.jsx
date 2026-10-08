@@ -2,7 +2,14 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Supports both options:
+// 1. Explicit environment variable: VITE_API_URL
+// 2. Production Vercel rewrite proxy: '/api' (when running in production without VITE_API_URL)
+// 3. Local development: 'http://localhost:8000'
+const rawApiUrl = import.meta.env.VITE_API_URL;
+const API_URL = rawApiUrl
+  ? rawApiUrl.replace(/\/+$/, '')
+  : (import.meta.env.PROD ? '/api' : 'http://localhost:8000');
 
 function App() {
   const [file, setFile] = useState(null);

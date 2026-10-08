@@ -14,17 +14,17 @@ from .tools.data_tools import SUPPORTED_TABULAR_EXTENSIONS, load_tabular
 
 import os
 
-ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
-    if origin.strip()
-] or ["*"]
+origins_env = os.getenv("ALLOWED_ORIGINS", "*").strip()
+if origins_env == "*" or not origins_env:
+    allow_origins = ["*"]
+else:
+    allow_origins = [o.strip() for o in origins_env.split(",") if o.strip()]
 
 app = FastAPI(title="AI Data Analyst", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS if "*" not in ALLOWED_ORIGINS else ["*"],
-    allow_credentials=True,
+    allow_origins=allow_origins,
+    allow_credentials=True if allow_origins != ["*"] else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
