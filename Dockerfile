@@ -10,10 +10,12 @@ ENV PYTHONUNBUFFERED=1 \
 # Install uv for fast dependency installation
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Copy dependency specifications first for layer caching
-COPY pyproject.toml uv.lock ./
+# Copy project specifications, readme, and source package
+# (Setuptools requires src/ and README.md when building the project package)
+COPY pyproject.toml uv.lock README.md ./
+COPY src ./src
 
-# Install dependencies into virtual environment
+# Install dependencies and project package into virtual environment
 RUN uv sync --frozen --no-dev --extra agents
 
 # Runner stage
@@ -26,14 +28,12 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
     PORT=8000
 
-# Copy installed virtual environment from builder stage
+# Copy installed virtual environment and application code from builder stage
 COPY --from=builder /app/.venv /app/.venv
-
-# Copy source code and files
-COPY src ./src
+COPY --from=builder /app/src ./src
 COPY pyproject.toml README.md ./
 
-# Create runtime directories for data and outputs
+# Create runtime directories for data uploads and outputs
 RUN mkdir -p /app/data /app/outputs
 
 EXPOSE 8000
