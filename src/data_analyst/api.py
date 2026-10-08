@@ -31,6 +31,17 @@ app.add_middleware(
 app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
 
+@app.get("/")
+def root() -> dict:
+    return {
+        "service": "ai-data-analyst",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/health",
+        "message": "AI Data Analyst API is running.",
+    }
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "ai-data-analyst"}
